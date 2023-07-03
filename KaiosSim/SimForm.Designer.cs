@@ -28,7 +28,9 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SimForm));
             this.browserPanel = new System.Windows.Forms.Panel();
+            this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.panel_softkey = new System.Windows.Forms.Panel();
             this.btnsharp = new System.Windows.Forms.Button();
             this.btn0 = new System.Windows.Forms.Button();
@@ -54,16 +56,30 @@
             this.刷新ToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.旋转屏幕ToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.切换分辨率ToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.label1 = new System.Windows.Forms.Label();
+            this.browserPanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.panel_softkey.SuspendLayout();
             this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // browserPanel
             // 
+            this.browserPanel.Controls.Add(this.label1);
+            this.browserPanel.Controls.Add(this.pictureBox1);
             this.browserPanel.Location = new System.Drawing.Point(15, 36);
             this.browserPanel.Name = "browserPanel";
             this.browserPanel.Size = new System.Drawing.Size(240, 320);
             this.browserPanel.TabIndex = 0;
+            // 
+            // pictureBox1
+            // 
+            this.pictureBox1.Image = ((System.Drawing.Image)(resources.GetObject("pictureBox1.Image")));
+            this.pictureBox1.Location = new System.Drawing.Point(1, 2);
+            this.pictureBox1.Name = "pictureBox1";
+            this.pictureBox1.Size = new System.Drawing.Size(236, 24);
+            this.pictureBox1.TabIndex = 0;
+            this.pictureBox1.TabStop = false;
             // 
             // panel_softkey
             // 
@@ -323,23 +339,34 @@
             // 刷新ToolStripMenuItem1
             // 
             this.刷新ToolStripMenuItem1.Name = "刷新ToolStripMenuItem1";
-            this.刷新ToolStripMenuItem1.Size = new System.Drawing.Size(180, 22);
+            this.刷新ToolStripMenuItem1.Size = new System.Drawing.Size(136, 22);
             this.刷新ToolStripMenuItem1.Text = "刷新";
             this.刷新ToolStripMenuItem1.Click += new System.EventHandler(this.刷新ToolStripMenuItem1_Click);
             // 
             // 旋转屏幕ToolStripMenuItem1
             // 
             this.旋转屏幕ToolStripMenuItem1.Name = "旋转屏幕ToolStripMenuItem1";
-            this.旋转屏幕ToolStripMenuItem1.Size = new System.Drawing.Size(180, 22);
+            this.旋转屏幕ToolStripMenuItem1.Size = new System.Drawing.Size(136, 22);
             this.旋转屏幕ToolStripMenuItem1.Text = "旋转屏幕";
             this.旋转屏幕ToolStripMenuItem1.Click += new System.EventHandler(this.旋转屏幕ToolStripMenuItem1_Click);
             // 
             // 切换分辨率ToolStripMenuItem1
             // 
             this.切换分辨率ToolStripMenuItem1.Name = "切换分辨率ToolStripMenuItem1";
-            this.切换分辨率ToolStripMenuItem1.Size = new System.Drawing.Size(180, 22);
+            this.切换分辨率ToolStripMenuItem1.Size = new System.Drawing.Size(136, 22);
             this.切换分辨率ToolStripMenuItem1.Text = "切换分辨率";
             this.切换分辨率ToolStripMenuItem1.Click += new System.EventHandler(this.切换分辨率ToolStripMenuItem1_Click);
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.BackColor = System.Drawing.Color.Transparent;
+            this.label1.ForeColor = System.Drawing.Color.White;
+            this.label1.Location = new System.Drawing.Point(199, 7);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(41, 12);
+            this.label1.TabIndex = 1;
+            this.label1.Text = "label1";
             // 
             // SimForm
             // 
@@ -355,6 +382,9 @@
             this.Name = "SimForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "kaios模拟运行";
+            this.browserPanel.ResumeLayout(false);
+            this.browserPanel.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.panel_softkey.ResumeLayout(false);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
@@ -391,5 +421,7 @@
         private System.Windows.Forms.ToolStripMenuItem 刷新ToolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem 旋转屏幕ToolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem 切换分辨率ToolStripMenuItem1;
+        private System.Windows.Forms.PictureBox pictureBox1;
+        private System.Windows.Forms.Label label1;
     }
 }

@@ -8,7 +8,11 @@ using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Windows.Forms; 
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+
 namespace KaiosSim
 {
     public partial class SimForm : Form
@@ -16,26 +20,40 @@ namespace KaiosSim
         public string url;
         static SimForm self;
 
-        public static int initwidth  = -1; 
+        public static int initwidth = -1;
         public static int initheight = -1;
         public static int initgap = -1;
 
-        public SimForm(string url)
+        bool fullscreen = false;
+
+        public SimForm(string url, bool fullscreen = false)
         {
             InitializeComponent();
+            this.fullscreen = fullscreen;
+            if (fullscreen)
+            {
+                pictureBox1.Visible = false;
+                label1.Visible = false;
+            }
+            else
+            {
+                pictureBox1.Visible = true;
+                label1.Parent = pictureBox1;
+                label1.Visible = true;
 
+            }
             this.url = url;
             self = this;
             self.browserPanel.Top = 32;
             self.browserPanel.Left = (self.Width - self.browserPanel.Width) / 2 - 3;
-             
+
             initgap = self.Width - self.browserPanel.Width;
 
             int formheight = self.browserPanel.Height + initgap + 50 + self.panel_softkey.Height;
-             
+
             self.Height = formheight;
-            this.KeyDown += SimForm_KeyDown; 
-            this.Load += SimForm_Load; 
+            this.KeyDown += SimForm_KeyDown;
+            this.Load += SimForm_Load;
         }
         GeckoWebBrowser geckoWebBrowser;
 
@@ -49,21 +67,21 @@ namespace KaiosSim
             {
                 //geckoWebBrowser.tool();
             }
-        } 
+        }
         private void SimForm_Load(object sender, EventArgs e)
         {
-            geckoWebBrowser = new GeckoWebBrowser { Dock = DockStyle.Fill};
+            geckoWebBrowser = new GeckoWebBrowser { Dock = DockStyle.Fill };
 
             geckoWebBrowser.EnableConsoleMessageNotfication();
-            geckoWebBrowser.ConsoleMessage += GeckoWebBrowser_ConsoleMessage; 
+            geckoWebBrowser.ConsoleMessage += GeckoWebBrowser_ConsoleMessage;
             geckoWebBrowser.UseHttpActivityObserver = true;
-            geckoWebBrowser.NoDefaultContextMenu = true; 
+            geckoWebBrowser.NoDefaultContextMenu = true;
             //geckoWebBrowser.ContextMenuStrip = this.ContextMenuStrip; 
             ResponseObserver MyObs = new ResponseObserver();
             //MyObs.TicketLoadedEvent += MyObs_TicketLoadedEvent;//如何处理捕捉到的response  
             ObserverService.AddObserver(MyObs, "http-on-modify-request", false);//添加观察器
-            ObserverService.AddObserver(MyObs, "http-on-examine-response",false);//添加观察器
-             
+            ObserverService.AddObserver(MyObs, "http-on-examine-response", false);//添加观察器
+
             browserPanel.Controls.Add(geckoWebBrowser);
 
             geckoWebBrowser.Navigate(this.url);
@@ -78,13 +96,35 @@ namespace KaiosSim
             initwidth = this.Width;
             initheight = this.Height;
             justifyKeyboard();
+            if (fullscreen == false)
+            {
+                Task.Run(() =>
+                {
+                    while (true)
+                    {
+                        try
+                        {
+                            label1.Invoke(new Action(() =>
+                            {
+                                label1.Text = DateTime.Now.ToString("HH:mm");
+                            }));
+                        }
+                        catch (Exception ex)
+                        {
+
+                        }
+
+                        Thread.Sleep(1000);
+                    }
+                });
+            }
         }
 
         private void GeckoWebBrowser_ConsoleMessage(object sender, ConsoleMessageEventArgs e)
         {
             Console.WriteLine(e.Message);
         }
-           
+
         /// <summary>
         /// 调整键盘 
         /// </summary>
@@ -103,21 +143,21 @@ namespace KaiosSim
             {
                 int width = self.browserPanel.Height;
                 int height = self.browserPanel.Width;
-                 
+
                 self.browserPanel.Width = width;
                 self.browserPanel.Height = height;
 
                 int formwidth = width + initgap;
-                
+
                 self.Width = formwidth;
 
-                int formheight =  height + initgap + 50+ self.panel_softkey.Height;
-                
+                int formheight = height + initgap + 50 + self.panel_softkey.Height;
+
                 self.Height = formheight;
 
                 self.browserPanel.Top = 32;
                 self.browserPanel.Left = (self.Width - self.browserPanel.Width) / 2 - 3;
-                 
+
                 justifyKeyboard();
             }));
         }
@@ -133,17 +173,17 @@ namespace KaiosSim
                 SelectFBL selectFBL = new SelectFBL(width, height);
                 selectFBL.Owner = self;
                 selectFBL.ShowDialog();
-                if(selectFBL.DialogResult==DialogResult.OK)
+                if (selectFBL.DialogResult == DialogResult.OK)
                 {
                     self.browserPanel.Width = selectFBL.outwidth;
                     self.browserPanel.Height = selectFBL.outheight;
 
                     int formwidth = selectFBL.outwidth + initgap;
-                   
+
                     self.Width = formwidth;
 
                     int formheight = selectFBL.outheight + initgap + 50 + self.panel_softkey.Height;
-                   
+
                     self.Height = formheight;
 
                     self.browserPanel.Top = 32;
@@ -152,21 +192,40 @@ namespace KaiosSim
                 }
             }));
         }
-         
+        [DllImport("user32.dll", EntryPoint = "GetKeyboardState")]
+
+        public static extern int GetKeyboardState(byte[] pbKeyState);
+        public static bool CapsLockStatus
+        {
+
+            get
+
+            {
+
+                byte[] bs = new byte[256];
+
+                GetKeyboardState(bs);
+
+                return (bs[0x14] == 1);
+
+            }
+
+        }
+
+        public const int WM_CHAR = 256;
         private void btn_leftsoft_Click(object sender, EventArgs e)
         {
             geckoWebBrowser.Focus();
-            //using (AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
-            //{
-            //    string result;
-            //    var jssc = "const ke = new KeyboardEvent('keydown', {bubbles: true, cancelable: true, keyCode: 0,key:'SoftLeft'});document.dispatchEvent(event);";
-            //    context.EvaluateScript(jssc, out result);
-            //    jssc = "const ke = new KeyboardEvent('keyup', {bubbles: true, cancelable: true, keyCode: 0,key:'SoftLeft'});document.dispatchEvent(event);";
-            //    context.EvaluateScript(jssc, out result);
-            //}  
-            keybd_event(Keys.Q, 0, 0, 0);
-            keybd_event(Keys.Q, 0, KEYEVENTF_KEYUP, 0);
+            if (CapsLockStatus)
+            {
+                SendKeys.Send("{q}");
+            }
+            else
+            {
+                SendKeys.Send("{Q}");
+            }
         }
+
         [DllImport("user32.dll", EntryPoint = "keybd_event", SetLastError = true)]
         public static extern void keybd_event(Keys bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
 
@@ -174,20 +233,18 @@ namespace KaiosSim
         private void btn_rightsoft_Click(object sender, EventArgs e)
         {
             geckoWebBrowser.Focus();
-            //using (AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
-            //{
-            //    string result;
-            //    var jssc = "const ke = new KeyboardEvent('keydown', {bubbles: true, cancelable: true, keyCode: 0,key:'SoftRight'});document.dispatchEvent(event);";
-            //    context.EvaluateScript(jssc, out result);
-            //    jssc = "const ke = new KeyboardEvent('keyup', {bubbles: true, cancelable: true, keyCode: 0,key:'SoftRight'});document.dispatchEvent(event);";
-            //    context.EvaluateScript(jssc, out result);
-            //} 
-            keybd_event(Keys.E, 0, 0, 0);
-            keybd_event(Keys.E, 0, KEYEVENTF_KEYUP, 0);
+            if (CapsLockStatus)
+            {
+                SendKeys.Send("{e}");
+            }
+            else
+            {
+                SendKeys.Send("{E}");
+            }
         }
-        
+
         private void btn_up_Click(object sender, EventArgs e)
-        { 
+        {
             geckoWebBrowser.Focus();
             SendKeys.Send("{UP}");
         }
@@ -225,7 +282,7 @@ namespace KaiosSim
         private void btn2_Click(object sender, EventArgs e)
         {
             geckoWebBrowser.Focus();
-            SendKeys.Send("2"); 
+            SendKeys.Send("2");
         }
 
         private void btn3_Click(object sender, EventArgs e)
@@ -306,5 +363,5 @@ namespace KaiosSim
             SimForm.qhfbl();
         }
     }
-     
+
 }
