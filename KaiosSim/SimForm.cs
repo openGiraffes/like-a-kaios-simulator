@@ -5,12 +5,15 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.Remoting.Contexts;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static Gecko.ObserverNotifications;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace KaiosSim
@@ -68,14 +71,46 @@ namespace KaiosSim
                 //geckoWebBrowser.tool();
             }
         }
+
         private void SimForm_Load(object sender, EventArgs e)
         {
+            GeckoPreferences.User["browser.xul.error_pages.enabled"] = true;
+
+            GeckoPreferences.User["gfx.font_rendering.graphite.enabled"] = true;
+
+            GeckoPreferences.User["full-screen-api.enabled"] = true;
+
+            GeckoPreferences.User["devtools.debugger.remote-enabled"] = true;
+            GeckoPreferences.User["devtools.chrome.enabled"] = true;
+
+            GeckoPreferences.User["devtools.debugger.prompt-connection"] = false;
+
+
+            // ie Xpcom.CreateInstance<nsIComponentRegistrar>(...
+            Guid aClass = new Guid("a7139c0e-962c-44b6-bec3-aaaaaaaaaaac");
+            var factory = new MyCSharpClassThatContainsXpComJavascriptObjectsFactory();
+            Xpcom.ComponentRegistrar.RegisterFactory(ref aClass, "Example C sharp com component", "@geckofx/myclass;1", factory);
+
+            // In order to use Components.classes etc we need to enable certan privileges. 
+            GeckoPreferences.User["capability.principal.codebase.p0.granted"] = "UniversalXPConnect";
+            GeckoPreferences.User["capability.principal.codebase.p0.id"] = "file://";
+            GeckoPreferences.User["capability.principal.codebase.p0.subjectName"] = "";
+            GeckoPreferences.User["security.fileuri.strict_origin_policy"] = false;
+
+
+            string dir = "C:\\Program Files\\Waterfox Classic\\browser";
+            var chromeDir = (nsIFile)Xpcom.NewNativeLocalFile(dir);
+            var chromeFile = chromeDir.Clone();
+            chromeFile.Append(new nsAString("chrome.manifest"));
+            Xpcom.ComponentRegistrar.AutoRegister(chromeFile);
+            Xpcom.ComponentManager.AddBootstrappedManifestLocation(chromeDir);
+
             geckoWebBrowser = new GeckoWebBrowser { Dock = DockStyle.Fill };
 
-            geckoWebBrowser.EnableConsoleMessageNotfication();
+            //geckoWebBrowser.EnableConsoleMessageNotfication();
             geckoWebBrowser.ConsoleMessage += GeckoWebBrowser_ConsoleMessage;
             geckoWebBrowser.UseHttpActivityObserver = true;
-            geckoWebBrowser.NoDefaultContextMenu = true;
+            //geckoWebBrowser.NoDefaultContextMenu = true;
             //geckoWebBrowser.ContextMenuStrip = this.ContextMenuStrip; 
             ResponseObserver MyObs = new ResponseObserver();
             //MyObs.TicketLoadedEvent += MyObs_TicketLoadedEvent;//如何处理捕捉到的response  
@@ -83,8 +118,37 @@ namespace KaiosSim
             ObserverService.AddObserver(MyObs, "http-on-examine-response", false);//添加观察器
 
             browserPanel.Controls.Add(geckoWebBrowser);
+            //geckoWebBrowser.Navigate(this.url); 
 
-            geckoWebBrowser.Navigate(this.url);
+            //geckoWebBrowser.Navigate("./debugger-server.html");
+            geckoWebBrowser.LoadHtml("hi");
+            geckoWebBrowser.NavigateFinishedNotifier.BlockUntilNavigationFinished();
+
+            using (Gecko.AutoJSContext js = new Gecko.AutoJSContext(geckoWebBrowser.Window))
+            {
+                js.EvaluateScript(@" try {
+        alert(Components.utils);
+        // After firefox 31, AddonManager in geckofx must be started to make remote debugging works.
+        Components.utils.import(""resource://gre/modules/AddonManager.jsm"");
+        AddonManagerPrivate.startup();
+
+        //Ref https://developer.mozilla.org/en-US/docs/Mozilla/Projects/XULRunner/Debugging_XULRunner_applications
+        Components.utils.import('resource://gre/modules/devtools/dbg-server.jsm');
+        if (!DebuggerServer.initialized) {
+            DebuggerServer.init();
+            DebuggerServer.addBrowserActors(null);
+        }
+        DebuggerServer.openListener(6001);
+    } catch (err) {
+        alert(err);
+    }"
+                );
+
+                //js.EvaluateScript("displayDate('tcpgame');");//有参数
+                //string result；
+                //js.EvaluateScript("displayDate(');", out result);//有返回值
+            }
+
             //chromeBrowser = new ChromiumWebBrowser(url);
             //chromeBrowser.BrowserSettings.FileAccessFromFileUrls = CefState.Enabled;
             //chromeBrowser.BrowserSettings.UniversalAccessFromFileUrls = CefState.Enabled;
@@ -363,5 +427,39 @@ namespace KaiosSim
             SimForm.qhfbl();
         }
     }
+
+    public class MyCSharpClassThatContainsXpComJavascriptObjectsFactory : nsIFactory
+    {
+        public IntPtr CreateInstance(nsISupports aOuter, ref Guid iid)
+        {
+            var obj = new MyCSharpClassThatContainsXpComJavascriptObjects();
+            return Marshal.GetIUnknownForObject(obj);
+        }
+
+        public void LockFactory(bool @lock)
+        {
+
+        }
+    }
+    /// <summary>
+    /// TODO: currenly I am abusing the nsIWebPageDescriptor interface just to make the CurrentDescriptor attribute return the nsIComponentRegistrar
+    /// This allows my to dynamically register javascript xpcom factories.
+    /// </summary>
+    public class MyCSharpClassThatContainsXpComJavascriptObjects : nsIWebPageDescriptor
+    {
+
+        public void LoadPage(nsISupports aPageDescriptor, uint aDisplayType)
+        {
+            throw new NotImplementedException();
+        }
+
+        public nsISupports GetCurrentDescriptorAttribute()
+        {
+            const string ComponentManagerCID = "91775d60-d5dc-11d2-92fb-00e09805570f";
+            nsIComponentRegistrar mgr = (nsIComponentRegistrar)Xpcom.GetObjectForIUnknown((IntPtr)Xpcom.GetService(new Guid(ComponentManagerCID)));
+            return (nsISupports)mgr;
+        }
+    }
+
 
 }
