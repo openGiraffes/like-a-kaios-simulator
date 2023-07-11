@@ -245,14 +245,9 @@ namespace KaiosSim
 
         private void GeckoWebBrowser_DOMContentLoaded(object sender, DomEventArgs e)
         {
-
             geckoWebBrowser.AddMessageEventListener("callMeClose", closeSelf);
-
             geckoWebBrowser.AddMessageEventListener("callLog", callLog);
-
             EvalHookJs();
-
-
         }
 
         private void callLog(string obj)
