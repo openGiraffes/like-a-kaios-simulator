@@ -53,20 +53,18 @@ namespace KaiosSim
         {
 
         }
-
         protected override void Response(HttpChannel p_HttpChannel)
         {
+
             Console.WriteLine("Response:" + p_HttpChannel.Uri);
 
-            var vhost = Form1.baseUrl;
-
-            p_HttpChannel.SetResponseHeader("Same-Site", "None", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Origin", vhost, false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Request-Headers", "*", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Credentials", "true", false);
-            p_HttpChannel.SetResponseHeader("Timing-Allow-Origin", "*", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type", false);
+            p_HttpChannel.SetResponseHeader("Same-Site", "None", true);
+            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Origin", "*", true);
+            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS", true);
+            p_HttpChannel.SetResponseHeader("Access-Control-Request-Headers", "*", true);
+            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Credentials", "true", true);
+            p_HttpChannel.SetResponseHeader("Timing-Allow-Origin", "*", true);
+            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type", true);
         }
     }
 }

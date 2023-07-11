@@ -2,6 +2,8 @@
 using Gecko.Net;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -34,7 +36,13 @@ namespace KaiosSim
         public SimForm(string url, bool fullscreen = false)
         {
             InitializeComponent();
-            RegisterExtensionDir("");
+
+            //RegisterExtensionDir("");
+
+            GeckoPreferences.User["security.fileuri.strict_origin_policy"] = false;
+            //GeckoPreferences.User["signed.applets.codebase_principal_support"] = true ;
+
+
             this.fullscreen = fullscreen;
             if (fullscreen)
             {
@@ -75,6 +83,15 @@ namespace KaiosSim
             }
         }
 
+        private void EvalHookJs()
+        {
+            string command = File.ReadAllText("hook.js");
+            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
+            {
+                var result = context.EvaluateScript(command);
+            }
+        }
+
         private void MyObs_TicketLoadedEvent(ref HttpChannel p_HttpChannel, object sender, EventArgs e)
         {
             if (sender is StreamListenerTee)
@@ -96,21 +113,19 @@ namespace KaiosSim
         {
 
             geckoWebBrowser = new GeckoWebBrowser { Dock = DockStyle.Fill };
-
             geckoWebBrowser.EnableConsoleMessageNotfication();
             geckoWebBrowser.ConsoleMessage += GeckoWebBrowser_ConsoleMessage;
             geckoWebBrowser.UseHttpActivityObserver = true;
-            geckoWebBrowser.NoDefaultContextMenu = true;
-            //geckoWebBrowser.ContextMenuStrip = this.ContextMenuStrip;
+            //geckoWebBrowser.DomDragStart += GeckoWebBrowser_DOMContentLoaded;
+            // geckoWebBrowser.DOMContentLoaded += GeckoWebBrowser_DOMContentLoaded;
+            //geckoWebBrowser.NoDefaultContextMenu = true;
+
+            geckoWebBrowser.Load += browser_Load;
+
+            geckoWebBrowser.DomClick += browser_DomClick;
+
             ResponseObserver MyObs2 = new ResponseObserver();
             ObserverService.AddObserver(MyObs2);
-
-            ////MyObs.TicketLoadedEvent += MyObs_TicketLoadedEvent;//如何处理捕捉到的response  
-            //ObserverService.AddObserver(MyObs2, "http-on-modify-request", false);//添加观察器
-            ////ObserverService.AddObserver(MyObs2, "http-on-examine-response", false);//添加观察器
-            //MyObserver MyObs = new MyObserver();
-            //MyObs.TicketLoadedEvent += MyObs_TicketLoadedEvent; //如何处理捕捉到的response 
-            //ObserverService.AddObserver(MyObs);//添加观察器
 
             geckoWebBrowser.ObserveHttpModifyRequest += GeckoWebBrowser_ObserveHttpModifyRequest;
 
@@ -142,6 +157,107 @@ namespace KaiosSim
                     }
                 });
             }
+        }
+
+        private void browser_DomClick(object sender, DomMouseEventArgs e)
+        {
+            var ele = e.CurrentTarget.CastToGeckoElement();
+            ele = e.Target.CastToGeckoElement();
+            AddClass("firefinder-match-red", ele);
+        }
+
+
+        /// <summary>
+        /// 添加样式
+        /// </summary>
+        public void AddClass(string className, params GeckoElement[] element)
+        {
+            if (element != null && element.Length > 0)
+            {
+                element.All(x =>
+                {
+                    if (x == null)
+                        return true;
+                    var cls = x.GetAttribute("class");
+                    cls += " " + className;
+                    x.SetAttribute("class", cls);
+                    return true;
+                });
+            }
+        }
+        /// <summary>
+        /// 移除样式
+        /// </summary>
+        public void RemoveClass(string className, params GeckoElement[] element)
+        {
+            if (element != null && element.Length > 0)
+            {
+                element.All(x =>
+                {
+                    if (x == null)
+                        return true;
+                    var cls = x.GetAttribute("class");
+                    if (!string.IsNullOrWhiteSpace(cls))
+                    {
+                        cls = cls.Replace(className, "").Trim();
+                        x.SetAttribute("class", cls);
+                    }
+                    return true;
+                });
+            }
+        }
+
+        /// <summary>
+        /// 注入样式
+        /// </summary>
+        public void InjectCss(GeckoDomDocument doc)
+        {
+            var css = doc.CreateHtmlElement("style");
+            css.InnerHtml = @"
+* { overflow: -moz-scrollbars-none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}  
+";
+            //隐藏滚动条
+            geckoWebBrowser.Document.Head.AppendChild(css);
+        }
+        /// <summary>
+        /// 注入脚本
+        /// </summary>
+        public void InjectJs(GeckoDomDocument doc)
+        {
+            var js = doc.CreateHtmlElement("script");
+            js.InnerHtml = File.ReadAllText("hook.js");
+            geckoWebBrowser.Document.Head.AppendChild(js);
+        }
+
+        private void browser_Load(object sender, DomEventArgs e)
+        {
+            InjectCss(geckoWebBrowser.Document);
+            //InjectJs(geckoWebBrowser.Document);
+        }
+
+        private void closeSelf(string obj)
+        {
+            this.Close();
+        }
+
+        private void GeckoWebBrowser_DOMContentLoaded(object sender, DomEventArgs e)
+        {
+
+            geckoWebBrowser.AddMessageEventListener("callMeClose", closeSelf);
+
+            geckoWebBrowser.AddMessageEventListener("callLog", callLog);
+
+            EvalHookJs();
+
+
+        }
+
+        private void callLog(string obj)
+        {
+            Console.WriteLine("\n" + obj + "\n");
         }
 
         private void GeckoWebBrowser_ObserveHttpModifyRequest(object sender, GeckoObserveHttpModifyRequestEventArgs e)
@@ -248,13 +364,13 @@ namespace KaiosSim
             if (CapsLockStatus)
             {
                 SendKeys.Send("{q}");
-
+                geckoWebBrowser.Focus();
                 SendKeys.Send("{Q}");
             }
             else
             {
                 SendKeys.Send("{Q}");
-
+                geckoWebBrowser.Focus();
                 SendKeys.Send("{q}");
 
             }
@@ -270,11 +386,15 @@ namespace KaiosSim
             if (CapsLockStatus)
             {
                 SendKeys.Send("{e}");
+
+                geckoWebBrowser.Focus();
                 SendKeys.Send("{E}");
             }
             else
             {
                 SendKeys.Send("{E}");
+
+                geckoWebBrowser.Focus();
                 SendKeys.Send("{e}");
             }
         }
@@ -483,6 +603,8 @@ namespace KaiosSim
                     default:
                         break;
                 }
+
+                geckoWebBrowser.Focus();
             }
         }
 
@@ -549,6 +671,8 @@ namespace KaiosSim
                     default:
                         break;
                 }
+
+                geckoWebBrowser.Focus();
             }
         }
     }

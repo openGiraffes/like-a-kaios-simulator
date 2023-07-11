@@ -5,13 +5,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using TouchSocket.Core;
-using TouchSocket.Http;
-using TouchSocket.Sockets;
 
 namespace KaiosSim
 {
@@ -21,55 +17,14 @@ namespace KaiosSim
         {
             InitializeComponent();
             Xpcom.Initialize("Firefox");
-            this.Load += Form1_Load;
             ////Gecko.GeckoPreferences.User["security.fileuri.strict_origin_policy"] = false;
             //Gecko.GeckoPreferences.User.SetBoolPref("security.fileuri.strict_origin_policy", false);
-            //Gecko.GeckoPreferences.User.SetLocked("security.fileuri.strict_origin_policy", true);
+            //Gecko.GeckoPreferences.User.SetLocked("security.fileuri.strict_origin_policy",true);
             ////Gecko.GeckoPreferences.Default["security.fileuri.strict_origin_policy"] = false;
             //Gecko.GeckoPreferences.Default.SetBoolPref("security.fileuri.strict_origin_policy", false);
             //bool? o = false;
-            //var t = Gecko.GeckoPreferences.Default.GetBoolPref("security.fileuri.strict_origin_policy", out o);
-            //Gecko.GeckoPreferences.Default.SetLocked("security.fileuri.strict_origin_policy", true);
-        }
-        HttpService service;
-        HttpStaticPagePlugin plug;
-
-        public static int Port = 7989;
-        public static string baseUrl = "";
-        private void Form1_Load(object sender, EventArgs e)
-        {
-            bool success = false;
-            for (int i = 0; i < 10; i++)
-            {
-                try
-                {
-                    service = new HttpService();
-                    var config = new TouchSocketConfig();
-                    config.UsePlugin()
-                        .SetReceiveType(ReceiveType.Auto)
-                        .SetListenIPHosts(new IPHost[] { new IPHost("127.0.0.1:" + Port) });
-                    baseUrl = "http://127.0.0.1:" + Port;
-                    service.Setup(config).Start();
-                    success = true;
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    Port++;
-                }
-            }
-            if (success == false)
-            {
-                MessageBox.Show("什么狗屁电脑，一个端口都不能用！");
-                return;
-            }
-            //service.AddPlugin<MyHttpPlug>();//添加自定义插件。
-            plug = service.AddPlugin<HttpStaticPagePlugin>();
-
-            //AddFolder("./");//添加静态页面文件夹
-
-            Console.WriteLine("Http服务器已启动");
-
+            //var t = Gecko.GeckoPreferences.Default.GetBoolPref("security.fileuri.strict_origin_policy",out o);
+            //Gecko.GeckoPreferences.Default.SetLocked("security.fileuri.strict_origin_policy",true);
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -81,19 +36,12 @@ namespace KaiosSim
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 string file = dialog.FileName;
-                //string url = "file:///" + file.Replace("\\", "/");
-                var path = System.IO.Path.GetDirectoryName(file);//+ launch_path;
-                var launch_path = System.IO.Path.GetFileName(file);
-                launch_path = baseUrl + "/" + launch_path;
-                plug.ClearFolder();
-                plug.AddFolder(path);
-                SimForm simForm = new SimForm(launch_path, true);
+                string url = "file:///" + file.Replace("\\", "/");
+                SimForm simForm = new SimForm(url, true);
                 simForm.Owner = this;
                 simForm.ShowDialog();
             }
         }
-
-
 
         private void button2_Click(object sender, EventArgs e)
         {
@@ -115,13 +63,10 @@ namespace KaiosSim
                     }
                     bool fullscreen = jsondata["fullscreen"]?.ToString()?.ToLower() == "true";
 
-                    var path = System.IO.Path.GetDirectoryName(file);//+ launch_path;
+                    var path = System.IO.Path.GetDirectoryName(file) + launch_path;
 
-                    plug.ClearFolder();
-                    plug.AddFolder(path);
-                    launch_path = baseUrl + launch_path;
-                    // string url = "file:///" + path.Replace("\\", "/");
-                    SimForm simForm = new SimForm(launch_path, fullscreen);
+                    string url = "file:///" + path.Replace("\\", "/");
+                    SimForm simForm = new SimForm(url, fullscreen);
                     simForm.Owner = this;
                     simForm.ShowDialog();
                 }
