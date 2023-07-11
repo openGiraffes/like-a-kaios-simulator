@@ -117,12 +117,12 @@ namespace KaiosSim
             geckoWebBrowser.ConsoleMessage += GeckoWebBrowser_ConsoleMessage;
             geckoWebBrowser.UseHttpActivityObserver = true;
             //geckoWebBrowser.DomDragStart += GeckoWebBrowser_DOMContentLoaded;
-            // geckoWebBrowser.DOMContentLoaded += GeckoWebBrowser_DOMContentLoaded;
+            geckoWebBrowser.DOMContentLoaded += GeckoWebBrowser_DOMContentLoaded;
             //geckoWebBrowser.NoDefaultContextMenu = true;
 
-            geckoWebBrowser.Load += browser_Load;
+            //geckoWebBrowser.Load += browser_Load;
 
-            geckoWebBrowser.DomClick += browser_DomClick;
+            //geckoWebBrowser.DomClick += browser_DomClick;
 
             ResponseObserver MyObs2 = new ResponseObserver();
             ObserverService.AddObserver(MyObs2);

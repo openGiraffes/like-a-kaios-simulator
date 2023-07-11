@@ -59,7 +59,7 @@ namespace KaiosSim
             Console.WriteLine("Response:" + p_HttpChannel.Uri);
 
             p_HttpChannel.SetResponseHeader("Same-Site", "None", true);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Origin", "*", true);
+            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Origin", Form1.baseUrl, true);
             p_HttpChannel.SetResponseHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS", true);
             p_HttpChannel.SetResponseHeader("Access-Control-Request-Headers", "*", true);
             p_HttpChannel.SetResponseHeader("Access-Control-Allow-Credentials", "true", true);
