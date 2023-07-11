@@ -22,10 +22,19 @@ namespace KaiosSim
         public static int initgap = -1;
 
         bool fullscreen = false;
+        void RegisterExtensionDir(string dir)
+        {
+            Console.WriteLine("Registering binary extension directory:  " + dir);
+            var chromeDir = (nsIFile)Xpcom.NewNativeLocalFile(dir);
+            var chromeFile = chromeDir.Clone();
+            chromeFile.Append(new nsAString("chrome.manifest"));
+            Xpcom.ComponentRegistrar.AutoRegister(chromeFile);
+        }
 
         public SimForm(string url, bool fullscreen = false)
         {
             InitializeComponent();
+            RegisterExtensionDir("");
             this.fullscreen = fullscreen;
             if (fullscreen)
             {
