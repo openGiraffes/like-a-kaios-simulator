@@ -2,19 +2,13 @@
 using Gecko.Net;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Runtime.Remoting.Contexts;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static Gecko.ObserverNotifications;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 
 namespace KaiosSim
 {
@@ -72,91 +66,48 @@ namespace KaiosSim
             }
         }
 
+        private void MyObs_TicketLoadedEvent(ref HttpChannel p_HttpChannel, object sender, EventArgs e)
+        {
+            if (sender is StreamListenerTee)
+            {
+                StreamListenerTee oStream = sender as StreamListenerTee;
+                byte[] aData = oStream.GetCapturedData();
+                string sData = Encoding.UTF8.GetString(aData);
+            }
+            p_HttpChannel.SetResponseHeader("Same-Site", "None", false);
+            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Origin", "*", false);
+            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS", false);
+            p_HttpChannel.SetResponseHeader("Access-Control-Request-Headers", "*", false);
+            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Credentials", "true", false);
+            p_HttpChannel.SetResponseHeader("Timing-Allow-Origin", "*", false);
+            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type", false);
+        }
+
         private void SimForm_Load(object sender, EventArgs e)
         {
-            GeckoPreferences.User["browser.xul.error_pages.enabled"] = true;
-
-            GeckoPreferences.User["gfx.font_rendering.graphite.enabled"] = true;
-
-            GeckoPreferences.User["full-screen-api.enabled"] = true;
-
-            GeckoPreferences.User["devtools.debugger.remote-enabled"] = true;
-            GeckoPreferences.User["devtools.chrome.enabled"] = true;
-
-            GeckoPreferences.User["devtools.debugger.prompt-connection"] = false;
-
-
-            // ie Xpcom.CreateInstance<nsIComponentRegistrar>(...
-            Guid aClass = new Guid("a7139c0e-962c-44b6-bec3-aaaaaaaaaaac");
-            var factory = new MyCSharpClassThatContainsXpComJavascriptObjectsFactory();
-            Xpcom.ComponentRegistrar.RegisterFactory(ref aClass, "Example C sharp com component", "@geckofx/myclass;1", factory);
-
-            // In order to use Components.classes etc we need to enable certan privileges. 
-            GeckoPreferences.User["capability.principal.codebase.p0.granted"] = "UniversalXPConnect";
-            GeckoPreferences.User["capability.principal.codebase.p0.id"] = "file://";
-            GeckoPreferences.User["capability.principal.codebase.p0.subjectName"] = "";
-            GeckoPreferences.User["security.fileuri.strict_origin_policy"] = false;
-
-
-            string dir = "C:\\Program Files\\Waterfox Classic\\browser";
-            var chromeDir = (nsIFile)Xpcom.NewNativeLocalFile(dir);
-            var chromeFile = chromeDir.Clone();
-            chromeFile.Append(new nsAString("chrome.manifest"));
-            Xpcom.ComponentRegistrar.AutoRegister(chromeFile);
-            Xpcom.ComponentManager.AddBootstrappedManifestLocation(chromeDir);
 
             geckoWebBrowser = new GeckoWebBrowser { Dock = DockStyle.Fill };
 
-            //geckoWebBrowser.EnableConsoleMessageNotfication();
+            geckoWebBrowser.EnableConsoleMessageNotfication();
             geckoWebBrowser.ConsoleMessage += GeckoWebBrowser_ConsoleMessage;
             geckoWebBrowser.UseHttpActivityObserver = true;
-            //geckoWebBrowser.NoDefaultContextMenu = true;
-            //geckoWebBrowser.ContextMenuStrip = this.ContextMenuStrip; 
-            ResponseObserver MyObs = new ResponseObserver();
-            //MyObs.TicketLoadedEvent += MyObs_TicketLoadedEvent;//如何处理捕捉到的response  
-            ObserverService.AddObserver(MyObs, "http-on-modify-request", false);//添加观察器
-            ObserverService.AddObserver(MyObs, "http-on-examine-response", false);//添加观察器
+            geckoWebBrowser.NoDefaultContextMenu = true;
+            //geckoWebBrowser.ContextMenuStrip = this.ContextMenuStrip;
+            ResponseObserver MyObs2 = new ResponseObserver();
+            ObserverService.AddObserver(MyObs2);
+
+            ////MyObs.TicketLoadedEvent += MyObs_TicketLoadedEvent;//如何处理捕捉到的response  
+            //ObserverService.AddObserver(MyObs2, "http-on-modify-request", false);//添加观察器
+            ////ObserverService.AddObserver(MyObs2, "http-on-examine-response", false);//添加观察器
+            //MyObserver MyObs = new MyObserver();
+            //MyObs.TicketLoadedEvent += MyObs_TicketLoadedEvent; //如何处理捕捉到的response 
+            //ObserverService.AddObserver(MyObs);//添加观察器
+
+            geckoWebBrowser.ObserveHttpModifyRequest += GeckoWebBrowser_ObserveHttpModifyRequest;
 
             browserPanel.Controls.Add(geckoWebBrowser);
-            //geckoWebBrowser.Navigate(this.url); 
+            geckoWebBrowser.Navigate(this.url);
 
-            //geckoWebBrowser.Navigate("./debugger-server.html");
-            geckoWebBrowser.LoadHtml("hi");
-            geckoWebBrowser.NavigateFinishedNotifier.BlockUntilNavigationFinished();
-
-            using (Gecko.AutoJSContext js = new Gecko.AutoJSContext(geckoWebBrowser.Window))
-            {
-                js.EvaluateScript(@" try {
-        alert(Components.utils);
-        // After firefox 31, AddonManager in geckofx must be started to make remote debugging works.
-        Components.utils.import(""resource://gre/modules/AddonManager.jsm"");
-        AddonManagerPrivate.startup();
-
-        //Ref https://developer.mozilla.org/en-US/docs/Mozilla/Projects/XULRunner/Debugging_XULRunner_applications
-        Components.utils.import('resource://gre/modules/devtools/dbg-server.jsm');
-        if (!DebuggerServer.initialized) {
-            DebuggerServer.init();
-            DebuggerServer.addBrowserActors(null);
-        }
-        DebuggerServer.openListener(6001);
-    } catch (err) {
-        alert(err);
-    }"
-                );
-
-                //js.EvaluateScript("displayDate('tcpgame');");//有参数
-                //string result；
-                //js.EvaluateScript("displayDate(');", out result);//有返回值
-            }
-
-            //chromeBrowser = new ChromiumWebBrowser(url);
-            //chromeBrowser.BrowserSettings.FileAccessFromFileUrls = CefState.Enabled;
-            //chromeBrowser.BrowserSettings.UniversalAccessFromFileUrls = CefState.Enabled;
-
-            //chromeBrowser.FrameLoadEnd += ChromeBrowser_FrameLoadEnd;
-            //chromeBrowser.KeyboardHandler = new KeyBoardHander();
-            //chromeBrowser.MenuHandler = new MenuHandler();
-            //browserPanel.Controls.Add(chromeBrowser);
             initwidth = this.Width;
             initheight = this.Height;
             justifyKeyboard();
@@ -182,6 +133,11 @@ namespace KaiosSim
                     }
                 });
             }
+        }
+
+        private void GeckoWebBrowser_ObserveHttpModifyRequest(object sender, GeckoObserveHttpModifyRequestEventArgs e)
+        {
+            Console.WriteLine(e.Uri);
         }
 
         private void GeckoWebBrowser_ConsoleMessage(object sender, ConsoleMessageEventArgs e)
@@ -283,10 +239,15 @@ namespace KaiosSim
             if (CapsLockStatus)
             {
                 SendKeys.Send("{q}");
+
+                SendKeys.Send("{Q}");
             }
             else
             {
                 SendKeys.Send("{Q}");
+
+                SendKeys.Send("{q}");
+
             }
         }
 
@@ -300,17 +261,21 @@ namespace KaiosSim
             if (CapsLockStatus)
             {
                 SendKeys.Send("{e}");
+                SendKeys.Send("{E}");
             }
             else
             {
                 SendKeys.Send("{E}");
+                SendKeys.Send("{e}");
             }
         }
 
         private void btn_up_Click(object sender, EventArgs e)
         {
             geckoWebBrowser.Focus();
-            SendKeys.Send("{UP}");
+            keybd_event(Keys.Up, 0, 0, 0);
+            keybd_event(Keys.Up, 0, KEYEVENTF_KEYUP, 0);
+            //SendKeys.Send("{UP}");
         }
 
         private void btn_ok_Click(object sender, EventArgs e)
@@ -426,40 +391,156 @@ namespace KaiosSim
 
             SimForm.qhfbl();
         }
+
+        private void btn_up_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                geckoWebBrowser.Focus();
+                keybd_event(Keys.Up, 0, 0, 0);
+            }
+        }
+
+        private void btn_up_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+
+                geckoWebBrowser.Focus();
+                keybd_event(Keys.Up, 0, KEYEVENTF_KEYUP, 0);
+            }
+        }
+
+
+        private void btnMouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                geckoWebBrowser.Focus();
+                string text = (sender as Button).Text;
+                switch (text)
+                {
+                    case "上":
+                        keybd_event(Keys.Up, 0, 0, 0);
+                        break;
+                    case "下":
+                        keybd_event(Keys.Down, 0, 0, 0);
+                        break;
+                    case "左":
+                        keybd_event(Keys.Left, 0, 0, 0);
+                        break;
+                    case "右":
+                        keybd_event(Keys.Right, 0, 0, 0);
+                        break;
+                    case "OK键":
+                        keybd_event(Keys.Enter, 0, 0, 0);
+                        break;
+                    case "*":
+                        keybd_event(Keys.Multiply, 0, 0, 0);
+                        break;
+                    case "#":
+                        SendKeys.Send("#");
+                        break;
+                    case "0":
+                        keybd_event(Keys.D0, 0, 0, 0);
+                        break;
+                    case "1":
+                        keybd_event(Keys.D1, 0, 0, 0);
+                        break;
+                    case "2":
+                        keybd_event(Keys.D2, 0, 0, 0);
+                        break;
+                    case "3":
+                        keybd_event(Keys.D3, 0, 0, 0);
+                        break;
+                    case "4":
+                        keybd_event(Keys.D4, 0, 0, 0);
+                        break;
+                    case "5":
+                        keybd_event(Keys.D5, 0, 0, 0);
+                        break;
+                    case "6":
+                        keybd_event(Keys.D6, 0, 0, 0);
+                        break;
+                    case "7":
+                        keybd_event(Keys.D7, 0, 0, 0);
+                        break;
+                    case "8":
+                        keybd_event(Keys.D8, 0, 0, 0);
+                        break;
+                    case "9":
+                        keybd_event(Keys.D9, 0, 0, 0);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        private void btnMouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+
+                geckoWebBrowser.Focus();
+                string text = (sender as Button).Text;
+                switch (text)
+                {
+                    case "上":
+                        keybd_event(Keys.Up, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "下":
+                        keybd_event(Keys.Down, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "左":
+                        keybd_event(Keys.Left, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "右":
+                        keybd_event(Keys.Right, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "OK键":
+                        keybd_event(Keys.Enter, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "*":
+                        keybd_event(Keys.Multiply, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "#":
+                        SendKeys.Send("#");
+                        break;
+                    case "0":
+                        keybd_event(Keys.D0, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "1":
+                        keybd_event(Keys.D1, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "2":
+                        keybd_event(Keys.D2, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "3":
+                        keybd_event(Keys.D3, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "4":
+                        keybd_event(Keys.D4, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "5":
+                        keybd_event(Keys.D5, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "6":
+                        keybd_event(Keys.D6, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "7":
+                        keybd_event(Keys.D7, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "8":
+                        keybd_event(Keys.D8, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    case "9":
+                        keybd_event(Keys.D9, 0, KEYEVENTF_KEYUP, 0);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
     }
-
-    public class MyCSharpClassThatContainsXpComJavascriptObjectsFactory : nsIFactory
-    {
-        public IntPtr CreateInstance(nsISupports aOuter, ref Guid iid)
-        {
-            var obj = new MyCSharpClassThatContainsXpComJavascriptObjects();
-            return Marshal.GetIUnknownForObject(obj);
-        }
-
-        public void LockFactory(bool @lock)
-        {
-
-        }
-    }
-    /// <summary>
-    /// TODO: currenly I am abusing the nsIWebPageDescriptor interface just to make the CurrentDescriptor attribute return the nsIComponentRegistrar
-    /// This allows my to dynamically register javascript xpcom factories.
-    /// </summary>
-    public class MyCSharpClassThatContainsXpComJavascriptObjects : nsIWebPageDescriptor
-    {
-
-        public void LoadPage(nsISupports aPageDescriptor, uint aDisplayType)
-        {
-            throw new NotImplementedException();
-        }
-
-        public nsISupports GetCurrentDescriptorAttribute()
-        {
-            const string ComponentManagerCID = "91775d60-d5dc-11d2-92fb-00e09805570f";
-            nsIComponentRegistrar mgr = (nsIComponentRegistrar)Xpcom.GetObjectForIUnknown((IntPtr)Xpcom.GetService(new Guid(ComponentManagerCID)));
-            return (nsISupports)mgr;
-        }
-    }
-
-
 }

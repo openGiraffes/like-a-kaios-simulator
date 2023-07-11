@@ -30,6 +30,7 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SimForm));
             this.browserPanel = new System.Windows.Forms.Panel();
+            this.label1 = new System.Windows.Forms.Label();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.panel_softkey = new System.Windows.Forms.Panel();
             this.btnsharp = new System.Windows.Forms.Button();
@@ -56,7 +57,6 @@
             this.刷新ToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.旋转屏幕ToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.切换分辨率ToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
-            this.label1 = new System.Windows.Forms.Label();
             this.browserPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.panel_softkey.SuspendLayout();
@@ -71,6 +71,17 @@
             this.browserPanel.Name = "browserPanel";
             this.browserPanel.Size = new System.Drawing.Size(240, 320);
             this.browserPanel.TabIndex = 0;
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.BackColor = System.Drawing.Color.Transparent;
+            this.label1.ForeColor = System.Drawing.Color.White;
+            this.label1.Location = new System.Drawing.Point(199, 7);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(41, 12);
+            this.label1.TabIndex = 1;
+            this.label1.Text = "label1";
             // 
             // pictureBox1
             // 
@@ -116,7 +127,8 @@
             this.btnsharp.TabStop = false;
             this.btnsharp.Text = "#";
             this.btnsharp.UseVisualStyleBackColor = true;
-            this.btnsharp.Click += new System.EventHandler(this.btnsharp_Click);
+            this.btnsharp.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btnsharp.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn0
             // 
@@ -127,7 +139,8 @@
             this.btn0.TabStop = false;
             this.btn0.Text = "0";
             this.btn0.UseVisualStyleBackColor = true;
-            this.btn0.Click += new System.EventHandler(this.btn0_Click);
+            this.btn0.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn0.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btnstar
             // 
@@ -138,7 +151,8 @@
             this.btnstar.TabStop = false;
             this.btnstar.Text = "*";
             this.btnstar.UseVisualStyleBackColor = true;
-            this.btnstar.Click += new System.EventHandler(this.btnstar_Click);
+            this.btnstar.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btnstar.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn9
             // 
@@ -149,7 +163,8 @@
             this.btn9.TabStop = false;
             this.btn9.Text = "9";
             this.btn9.UseVisualStyleBackColor = true;
-            this.btn9.Click += new System.EventHandler(this.btn9_Click);
+            this.btn9.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn9.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn8
             // 
@@ -160,7 +175,8 @@
             this.btn8.TabStop = false;
             this.btn8.Text = "8";
             this.btn8.UseVisualStyleBackColor = true;
-            this.btn8.Click += new System.EventHandler(this.btn8_Click);
+            this.btn8.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn8.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn7
             // 
@@ -171,7 +187,8 @@
             this.btn7.TabStop = false;
             this.btn7.Text = "7";
             this.btn7.UseVisualStyleBackColor = true;
-            this.btn7.Click += new System.EventHandler(this.btn7_Click);
+            this.btn7.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn7.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn6
             // 
@@ -182,7 +199,8 @@
             this.btn6.TabStop = false;
             this.btn6.Text = "6";
             this.btn6.UseVisualStyleBackColor = true;
-            this.btn6.Click += new System.EventHandler(this.btn6_Click);
+            this.btn6.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn6.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn5
             // 
@@ -193,7 +211,8 @@
             this.btn5.TabStop = false;
             this.btn5.Text = "5";
             this.btn5.UseVisualStyleBackColor = true;
-            this.btn5.Click += new System.EventHandler(this.btn5_Click);
+            this.btn5.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn5.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn4
             // 
@@ -204,7 +223,8 @@
             this.btn4.TabStop = false;
             this.btn4.Text = "4";
             this.btn4.UseVisualStyleBackColor = true;
-            this.btn4.Click += new System.EventHandler(this.btn4_Click);
+            this.btn4.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn4.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn3
             // 
@@ -215,7 +235,8 @@
             this.btn3.TabStop = false;
             this.btn3.Text = "3";
             this.btn3.UseVisualStyleBackColor = true;
-            this.btn3.Click += new System.EventHandler(this.btn3_Click);
+            this.btn3.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn3.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn2
             // 
@@ -226,7 +247,8 @@
             this.btn2.TabStop = false;
             this.btn2.Text = "2";
             this.btn2.UseVisualStyleBackColor = true;
-            this.btn2.Click += new System.EventHandler(this.btn2_Click);
+            this.btn2.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn2.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn1
             // 
@@ -237,7 +259,8 @@
             this.btn1.TabStop = false;
             this.btn1.Text = "1";
             this.btn1.UseVisualStyleBackColor = true;
-            this.btn1.Click += new System.EventHandler(this.btn1_Click);
+            this.btn1.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn1.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn_up
             // 
@@ -248,7 +271,8 @@
             this.btn_up.TabStop = false;
             this.btn_up.Text = "上";
             this.btn_up.UseVisualStyleBackColor = true;
-            this.btn_up.Click += new System.EventHandler(this.btn_up_Click);
+            this.btn_up.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn_up.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn_down
             // 
@@ -259,7 +283,8 @@
             this.btn_down.TabStop = false;
             this.btn_down.Text = "下";
             this.btn_down.UseVisualStyleBackColor = true;
-            this.btn_down.Click += new System.EventHandler(this.btn_down_Click);
+            this.btn_down.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn_down.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn_left
             // 
@@ -270,7 +295,8 @@
             this.btn_left.TabStop = false;
             this.btn_left.Text = "左";
             this.btn_left.UseVisualStyleBackColor = true;
-            this.btn_left.Click += new System.EventHandler(this.btn_left_Click);
+            this.btn_left.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn_left.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn_right
             // 
@@ -281,7 +307,8 @@
             this.btn_right.TabStop = false;
             this.btn_right.Text = "右";
             this.btn_right.UseVisualStyleBackColor = true;
-            this.btn_right.Click += new System.EventHandler(this.btn_right_Click);
+            this.btn_right.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn_right.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn_ok
             // 
@@ -292,7 +319,8 @@
             this.btn_ok.TabStop = false;
             this.btn_ok.Text = "OK键";
             this.btn_ok.UseVisualStyleBackColor = true;
-            this.btn_ok.Click += new System.EventHandler(this.btn_ok_Click);
+            this.btn_ok.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btnMouseDown);
+            this.btn_ok.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btnMouseUp);
             // 
             // btn_rightsoft
             // 
@@ -356,17 +384,6 @@
             this.切换分辨率ToolStripMenuItem1.Size = new System.Drawing.Size(136, 22);
             this.切换分辨率ToolStripMenuItem1.Text = "切换分辨率";
             this.切换分辨率ToolStripMenuItem1.Click += new System.EventHandler(this.切换分辨率ToolStripMenuItem1_Click);
-            // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.BackColor = System.Drawing.Color.Transparent;
-            this.label1.ForeColor = System.Drawing.Color.White;
-            this.label1.Location = new System.Drawing.Point(199, 7);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(41, 12);
-            this.label1.TabIndex = 1;
-            this.label1.Text = "label1";
             // 
             // SimForm
             // 
