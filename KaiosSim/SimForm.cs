@@ -2,6 +2,7 @@
 using Gecko.Net;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -54,7 +55,6 @@ namespace KaiosSim
                 pictureBox1.Visible = true;
                 label1.Parent = pictureBox1;
                 label1.Visible = true;
-
             }
             this.url = url;
             self = this;
@@ -130,6 +130,11 @@ namespace KaiosSim
             geckoWebBrowser.ObserveHttpModifyRequest += GeckoWebBrowser_ObserveHttpModifyRequest;
 
             browserPanel.Controls.Add(geckoWebBrowser);
+
+            //panel1.BringToFront();
+            geckoWebBrowser.BringToFront();
+
+            //pictureBox1.BringToFront();
             geckoWebBrowser.Navigate(this.url);
 
             initwidth = this.Width;
@@ -157,6 +162,11 @@ namespace KaiosSim
                     }
                 });
             }
+        }
+
+        private void GeckoWebBrowser_Paint(object sender, PaintEventArgs e)
+        {
+            e.Graphics.Clear(Color.Black);
         }
 
         private void browser_DomClick(object sender, DomMouseEventArgs e)
@@ -213,11 +223,12 @@ namespace KaiosSim
         public void InjectCss(GeckoDomDocument doc)
         {
             var css = doc.CreateHtmlElement("style");
+            var data = Convert.ToBase64String(File.ReadAllBytes("developer.png"));
             css.InnerHtml = @"
 * { overflow: -moz-scrollbars-none;
   overflow-x: hidden;
   overflow-y: hidden;
-}  
+}   
 ";
             //隐藏滚动条
             geckoWebBrowser.Document.Head.AppendChild(css);
@@ -245,6 +256,7 @@ namespace KaiosSim
 
         private void GeckoWebBrowser_DOMContentLoaded(object sender, DomEventArgs e)
         {
+            InjectCss(geckoWebBrowser.Document);
             geckoWebBrowser.AddMessageEventListener("callMeClose", closeSelf);
             geckoWebBrowser.AddMessageEventListener("callLog", callLog);
             EvalHookJs();
@@ -669,6 +681,11 @@ namespace KaiosSim
 
                 geckoWebBrowser.Focus();
             }
+        }
+
+        private void browserPanel_Paint(object sender, PaintEventArgs e)
+        {
+            e.Graphics.Clear(Color.Black);
         }
     }
 }
