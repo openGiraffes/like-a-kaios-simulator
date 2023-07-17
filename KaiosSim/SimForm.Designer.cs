@@ -30,6 +30,7 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SimForm));
             this.browserPanel = new System.Windows.Forms.Panel();
+            this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.label1 = new System.Windows.Forms.Label();
             this.panel_softkey = new System.Windows.Forms.Panel();
             this.btnsharp = new System.Windows.Forms.Button();
@@ -56,11 +57,10 @@
             this.刷新ToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.旋转屏幕ToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.切换分辨率ToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
-            this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.browserPanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.panel_softkey.SuspendLayout();
             this.menuStrip1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
             // browserPanel
@@ -72,6 +72,16 @@
             this.browserPanel.Name = "browserPanel";
             this.browserPanel.Size = new System.Drawing.Size(240, 320);
             this.browserPanel.TabIndex = 0;
+            // 
+            // pictureBox1
+            // 
+            this.pictureBox1.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pictureBox1.Image = ((System.Drawing.Image)(resources.GetObject("pictureBox1.Image")));
+            this.pictureBox1.Location = new System.Drawing.Point(0, 0);
+            this.pictureBox1.Name = "pictureBox1";
+            this.pictureBox1.Size = new System.Drawing.Size(240, 26);
+            this.pictureBox1.TabIndex = 2;
+            this.pictureBox1.TabStop = false;
             // 
             // label1
             // 
@@ -324,7 +334,8 @@
             this.btn_rightsoft.TabStop = false;
             this.btn_rightsoft.Text = "右软键";
             this.btn_rightsoft.UseVisualStyleBackColor = true;
-            this.btn_rightsoft.Click += new System.EventHandler(this.btn_rightsoft_Click);
+            this.btn_rightsoft.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btn_rightsoft_MouseDown);
+            this.btn_rightsoft.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btn_rightsoft_MouseUp);
             // 
             // btn_leftsoft
             // 
@@ -335,7 +346,8 @@
             this.btn_leftsoft.TabStop = false;
             this.btn_leftsoft.Text = "左软键";
             this.btn_leftsoft.UseVisualStyleBackColor = true;
-            this.btn_leftsoft.Click += new System.EventHandler(this.btn_leftsoft_Click);
+            this.btn_leftsoft.MouseDown += new System.Windows.Forms.MouseEventHandler(this.btn_leftsoft_MouseDown);
+            this.btn_leftsoft.MouseUp += new System.Windows.Forms.MouseEventHandler(this.btn_leftsoft_MouseUp);
             // 
             // menuStrip1
             // 
@@ -378,16 +390,6 @@
             this.切换分辨率ToolStripMenuItem1.Text = "切换分辨率";
             this.切换分辨率ToolStripMenuItem1.Click += new System.EventHandler(this.切换分辨率ToolStripMenuItem1_Click);
             // 
-            // pictureBox1
-            // 
-            this.pictureBox1.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pictureBox1.Image = ((System.Drawing.Image)(resources.GetObject("pictureBox1.Image")));
-            this.pictureBox1.Location = new System.Drawing.Point(0, 0);
-            this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(240, 26);
-            this.pictureBox1.TabIndex = 2;
-            this.pictureBox1.TabStop = false;
-            // 
             // SimForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
@@ -404,10 +406,10 @@
             this.Text = "kaios模拟运行";
             this.browserPanel.ResumeLayout(false);
             this.browserPanel.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.panel_softkey.ResumeLayout(false);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 

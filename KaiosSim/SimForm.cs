@@ -40,9 +40,7 @@ namespace KaiosSim
 
             //RegisterExtensionDir("");
 
-            GeckoPreferences.User["security.fileuri.strict_origin_policy"] = false;
             //GeckoPreferences.User["signed.applets.codebase_principal_support"] = true ;
-
 
             this.fullscreen = fullscreen;
             if (fullscreen)
@@ -368,18 +366,16 @@ namespace KaiosSim
         private void btn_leftsoft_Click(object sender, EventArgs e)
         {
             geckoWebBrowser.Focus();
-            if (CapsLockStatus)
-            {
-                SendKeys.Send("{q}");
-                geckoWebBrowser.Focus();
-                SendKeys.Send("{Q}");
-            }
-            else
-            {
-                SendKeys.Send("{Q}");
-                geckoWebBrowser.Focus();
-                SendKeys.Send("{q}");
 
+            string js = @"
+let myEvent = new CustomEvent(""keydown"", {
+	detail: { key: ""SoftLeft"" }
+}); 
+document.dispatchEvent(myEvent);";
+
+            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
+            {
+                var result = context.EvaluateScript(js);
             }
         }
 
@@ -390,20 +386,32 @@ namespace KaiosSim
         private void btn_rightsoft_Click(object sender, EventArgs e)
         {
             geckoWebBrowser.Focus();
-            if (CapsLockStatus)
-            {
-                SendKeys.Send("{e}");
 
-                geckoWebBrowser.Focus();
-                SendKeys.Send("{E}");
-            }
-            else
-            {
-                SendKeys.Send("{E}");
+            string js = @"
+let myEvent = new CustomEvent(""keydown"", {
+	detail: { key: ""SoftRight"" }
+}); 
+document.dispatchEvent(myEvent);";
 
-                geckoWebBrowser.Focus();
-                SendKeys.Send("{e}");
+            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
+            {
+                var result = context.EvaluateScript(js);
             }
+
+            //if (CapsLockStatus)
+            //{
+            //    SendKeys.Send("{e}");
+
+            //    geckoWebBrowser.Focus();
+            //    SendKeys.Send("{E}");
+            //}
+            //else
+            //{
+            //    SendKeys.Send("{E}");
+
+            //    geckoWebBrowser.Focus();
+            //    SendKeys.Send("{e}");
+            //}
         }
 
         private void btn_up_Click(object sender, EventArgs e)
@@ -686,6 +694,66 @@ namespace KaiosSim
         private void browserPanel_Paint(object sender, PaintEventArgs e)
         {
             e.Graphics.Clear(Color.Black);
+        }
+
+        private void btn_leftsoft_MouseDown(object sender, MouseEventArgs e)
+        {
+            geckoWebBrowser.Focus();
+
+            string js = @"
+var myEvent = new KeyboardEvent('keydown',{key:'SoftLeft',code:'SoftLeft'}); 
+document.dispatchEvent(myEvent);
+window.dispatchEvent(myEvent);";
+
+            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
+            {
+                var result = context.EvaluateScript(js);
+            }
+        }
+
+        private void btn_leftsoft_MouseUp(object sender, MouseEventArgs e)
+        {
+            geckoWebBrowser.Focus();
+
+            string js = @"
+var myEvent = new KeyboardEvent('keyup',{key:'SoftLeft',code:'SoftLeft'}); 
+document.dispatchEvent(myEvent);
+window.dispatchEvent(myEvent);";
+
+            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
+            {
+                var result = context.EvaluateScript(js);
+            }
+        }
+
+        private void btn_rightsoft_MouseDown(object sender, MouseEventArgs e)
+        {
+            geckoWebBrowser.Focus();
+
+            string js = @"
+var myEvent = new KeyboardEvent('keydown',{key:'SoftRight',code:'SoftRight'}); 
+document.dispatchEvent(myEvent);
+window.dispatchEvent(myEvent);";
+
+            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
+            {
+                var result = context.EvaluateScript(js);
+            }
+        }
+
+        private void btn_rightsoft_MouseUp(object sender, MouseEventArgs e)
+        {
+            geckoWebBrowser.Focus();
+
+            string js = @"
+var myEvent = new KeyboardEvent('keyup',{key:'SoftRight',code:'SoftRight'}); 
+document.dispatchEvent(myEvent);
+window.dispatchEvent(myEvent);";
+
+            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
+            {
+                var result = context.EvaluateScript(js);
+            }
         }
     }
 }

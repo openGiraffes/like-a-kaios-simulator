@@ -56,7 +56,7 @@ namespace KaiosSim
         protected override void Response(HttpChannel p_HttpChannel)
         {
 
-            Console.WriteLine("Response:" + p_HttpChannel.Uri);
+            //Console.WriteLine("Response:" + p_HttpChannel.Uri);
 
             p_HttpChannel.SetResponseHeader("Same-Site", "None", true);
             p_HttpChannel.SetResponseHeader("Access-Control-Allow-Origin", Form1.baseUrl, true);
