@@ -53,6 +53,7 @@ namespace KaiosSim
                 pictureBox1.Visible = true;
                 label1.Parent = pictureBox1;
                 label1.Visible = true;
+                //pictureBox1.Parent = browserPanel;
             }
             this.url = url;
             self = this;
@@ -116,6 +117,8 @@ namespace KaiosSim
             geckoWebBrowser.UseHttpActivityObserver = true;
             //geckoWebBrowser.DomDragStart += GeckoWebBrowser_DOMContentLoaded;
             geckoWebBrowser.DOMContentLoaded += GeckoWebBrowser_DOMContentLoaded;
+
+
             //geckoWebBrowser.NoDefaultContextMenu = true;
 
             //geckoWebBrowser.Load += browser_Load;
@@ -130,7 +133,7 @@ namespace KaiosSim
             browserPanel.Controls.Add(geckoWebBrowser);
 
             //panel1.BringToFront();
-            geckoWebBrowser.BringToFront();
+            pictureBox1.BringToFront();
 
             //pictureBox1.BringToFront();
             geckoWebBrowser.Navigate(this.url);
