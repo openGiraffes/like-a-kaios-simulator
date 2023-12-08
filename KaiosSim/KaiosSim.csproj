@@ -63,8 +63,8 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Geckofx-Core, Version=45.0.34.0, Culture=neutral, PublicKeyToken=3209ac31600d1857, processorArchitecture=x86">
-      <HintPath>..\packages\Geckofx45.45.0.34\lib\net45\Geckofx-Core.dll</HintPath>
+    <Reference Include="Geckofx-Core, Version=45.0.36.0, Culture=neutral, PublicKeyToken=3209ac31600d1857, processorArchitecture=MSIL">
+      <HintPath>..\packages\Geckofx-Core-45.0.36.02.45.0.36\lib\net45\Geckofx-Core.dll</HintPath>
     </Reference>
     <Reference Include="Geckofx-Winforms, Version=45.0.34.0, Culture=neutral, PublicKeyToken=3209ac31600d1857, processorArchitecture=x86">
       <HintPath>..\packages\Geckofx45.45.0.34\lib\net45\Geckofx-Winforms.dll</HintPath>
@@ -111,6 +111,7 @@
     <Compile Include="SimForm.designer.cs">
       <DependentUpon>SimForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="SortItem.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
@@ -150,6 +151,9 @@
     <None Include="developer.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="hook.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Content Include="Firefox\AccessibleMarshal.dll" />
     <Content Include="Firefox\breakpadinjector.dll" />
     <Content Include="Firefox\d3dcompiler_47.dll" />
@@ -169,9 +173,6 @@
     <Content Include="Firefox\sandboxbroker.dll" />
     <Content Include="Firefox\softokn3.dll" />
     <Content Include="Firefox\xul.dll" />
-    <None Include="hook.js">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <Content Include="opengiraffes.ico" />
     <Content Include="picheader.png" />
   </ItemGroup>

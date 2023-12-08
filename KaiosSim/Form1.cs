@@ -1,4 +1,5 @@
 ﻿using Gecko;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -12,6 +13,7 @@ using System.Windows.Forms;
 using TouchSocket.Core;
 using TouchSocket.Http;
 using TouchSocket.Sockets;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace KaiosSim
 {
@@ -101,34 +103,88 @@ namespace KaiosSim
         {
             try
             {
+                listView1.Items.Clear();
+                listView1.LargeImageList = new ImageList();
+                listView1.LargeImageList.ImageSize = new Size(64, 64);
+                listView1.LargeImageList?.Images?.Clear();
                 if (!File.Exists("config.json"))
                 {
                     return;
                 }
                 var str = File.ReadAllText("config.json");
-                JArray jobj = JArray.Parse(str);
+
+                try
+                {
+                    JArray jArray = JArray.Parse(str);
+
+                    JObject obj = new JObject();
+
+                    foreach(var item in jArray)
+                    {
+                        var sitem = new SortItem();
+                        sitem.runtime = 1;
+                        sitem.firstruntime = DateTime.Now;
+                        sitem.lastruntime = DateTime.Now;
+                        obj[item.ToString()] = JObject.Parse(JsonConvert.SerializeObject(sitem));
+                    }
+                    str = obj.ToString();
+                    File.WriteAllText("config.json", str);
+                }
+                catch(Exception ex)
+                {
+
+                }
+
+                JObject jobj = JObject.Parse(str);
+
+                List<string> names = new List<string>(); 
+                List<SortItem> items = new List<SortItem>();
 
                 foreach (var job in jobj)
                 {
                     try
                     {
-                        string key = job.ToString();
-                        addToPanel(key);
+                        string key = job.Key.ToString();
+                        JObject values = JObject.Parse(job.Value.ToString());
+                        names.Add(key);
+                        items.Add(values.ToObject<SortItem>());
                     }
                     catch (Exception ex)
-                    {
-
+                    { 
                         Console.WriteLine(ex.ToString());
                     }
                 }
+
+                for(int i=0;i<names.Count;i++)
+                {
+                    for(int j=0;j<names.Count;j++)
+                    {
+                        if (items[i].lastruntime > items[j].lastruntime)
+                        {
+                            string t1 = names[i];
+                            names[i] = names[j];
+                            names[j] = t1;
+                            var t2 = items[i];
+                            items[i] = items[j];
+                            items[j] = t2;  
+                        }
+                    }
+                }
+
+                for(int i=0;i<names.Count;i++)
+                {
+
+                    addToPanel(names[i], false, items[i]);
+                }
+
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
             }
         }
-
-        private void addToPanel(string key, bool first = false)
+        private Point pointView = new Point(0, 0);
+        private void addToPanel(string key, bool first , SortItem values)
         {
             if (!File.Exists(key))
             {
@@ -136,8 +192,7 @@ namespace KaiosSim
                 return;
             }
             ListViewItem item = new ListViewItem();
-
-
+            
             item.Tag = key;
             var path = Path.GetDirectoryName(key);
             var kaios25main = Path.Combine(path, "manifest.webapp");
@@ -147,8 +202,12 @@ namespace KaiosSim
             {
                 kaios25main = Path.Combine(path, "appmanifest.json");
                 if (!File.Exists(kaios25main))
-                {
-                    Console.WriteLine(kaios25main + " 不存在！");
+                { 
+                    kaios25main = Path.Combine(path, "manifest.webmanifest");
+                    if (!File.Exists(kaios25main))
+                    {
+                        Console.WriteLine(kaios25main + " 不存在！");
+                    }
                 }
             }
 
@@ -156,7 +215,7 @@ namespace KaiosSim
             JObject mainobj = JObject.Parse(mainfest);
             var name = mainobj["name"].ToString();
             string icon;
-            if (kaios25main.EndsWith("appmanifest.json"))
+            if (kaios25main.EndsWith("appmanifest.json") || kaios25main.EndsWith("manifest.webmanifest"))
             {
                 icon = ((JObject)mainobj["icons"].LastOrDefault())["src"].ToString().Replace("/", "\\");
             }
@@ -168,6 +227,9 @@ namespace KaiosSim
 
             byte[] bytescion = File.ReadAllBytes(iconppath);
             Image img = Image.FromStream(new MemoryStream(bytescion));
+
+
+
             item.Text = name;
             if (listView1.LargeImageList == null)
             {
@@ -177,9 +239,11 @@ namespace KaiosSim
 
             listView1.LargeImageList.Images.Add(iconppath, img);
             item.ImageIndex = listView1.LargeImageList.Images.Count - 1;
-            if (first)
-            {
+            
+            item.ToolTipText = string.Format("运行次数:{0}\n最后运行时间:{1}\n首次运行时间:{2}\n", values.runtime, values.lastruntime?.ToString("yyyy-MM-dd HH:mm:ss"),values.firstruntime?.ToString("yyyy-MM-dd HH:mm:ss"));
 
+            if (first)
+            { 
                 listView1.Items.Insert(0, item);
             }
             else
@@ -193,15 +257,32 @@ namespace KaiosSim
         {
             try
             {
-                string str = "[]";
+                string str = "{}";
                 if (File.Exists("config.json"))
                 {
                     str = File.ReadAllText("config.json");
                 }
-                JArray jobj = JArray.Parse(str);
-                jobj.Insert(0, key);
+                JObject jobj = JObject.Parse(str);
+                JObject values;
+                if (jobj[key]!=null)
+                {
+                    values = JObject.Parse(jobj[key].ToString());
+                    values["runtime"] = int.Parse(values["runtime"].ToString()) +1;
+                    values["lastruntime"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); 
+                    jobj[key] = values;
+                }
+                else
+                {
+                    values = new JObject();
+                    values["runtime"] = 1;
+                    values["lastruntime"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                    values["firstruntime"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                    jobj[key] = values;
+                    addToPanel(key, true, values.ToObject<SortItem>());
+                }
+
                 File.WriteAllText("config.json", jobj.ToString(Newtonsoft.Json.Formatting.None));
-                addToPanel(key, true);
+                
             }
             catch (Exception ex)
             {
@@ -223,6 +304,8 @@ namespace KaiosSim
             {
                 string file = dialog.FileName;
                 saveHistory(file);
+
+                loadHistory();
                 //string url = "file:///" + file.Replace("\\", "/");
                 var path = System.IO.Path.GetDirectoryName(file);//+ launch_path;
                 var launch_path = System.IO.Path.GetFileName(file);
@@ -240,7 +323,7 @@ namespace KaiosSim
             OpenFileDialog dialog = new OpenFileDialog();
             dialog.Multiselect = false;//该值确定是否可以选择多个文件
             dialog.Title = "请选择文件";
-            dialog.Filter = "KAIOS应用描述文件|appmanifest.json;*.webapp|KAIOS2.5应用描述文件(*.webapp)|*.webapp|KAIOS3应用描述文件(appmanifest.json)|appmanifest.json";
+            dialog.Filter = "KAIOS应用描述文件|appmanifest.json;*.webapp;manifest.webmanifest|KAIOS2.5应用描述文件(*.webapp)|*.webapp|KAIOS3应用描述文件(appmanifest.json,manifest.webmanifest)|appmanifest.json;manifest.webmanifest";
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 try
@@ -259,6 +342,8 @@ namespace KaiosSim
 
                     var path = System.IO.Path.GetDirectoryName(file);//+ launch_path;
                     saveHistory(Path.Combine(path, file));
+
+                    loadHistory();
                     plug.ClearFolder();
                     plug.AddFolder(path);
                     launch_path = baseUrl + launch_path;
@@ -280,6 +365,9 @@ namespace KaiosSim
             if (item != null)
             {
                 var file = item.Tag.ToString();
+                saveHistory(file);
+
+                loadHistory();
                 var path = System.IO.Path.GetDirectoryName(file);//+ launch_path;
                 plug.ClearFolder();
                 plug.AddFolder(path);
@@ -288,6 +376,11 @@ namespace KaiosSim
                 {
                     mainpath = path + "/" + "appmanifest.json";
                 }
+                if (!File.Exists(mainpath))
+                {
+                    mainpath = path + "/" + "manifest.webmanifest";
+                }
+
                 var data = System.IO.File.ReadAllText(mainpath);
                 var jsondata = JObject.Parse(data);
                 bool fullscreen = jsondata["fullscreen"] != null ? jsondata["fullscreen"]?.ToString()?.ToLower() == "true" : jsondata["display"]?.ToString() == "fullscreen";
@@ -302,6 +395,33 @@ namespace KaiosSim
                 simForm.Owner = this;
                 simForm.ShowDialog();
             }
+        }
+
+        private void listView1_MouseMove(object sender, MouseEventArgs e)
+        {
+            ListViewItem lvi = this.listView1.GetItemAt(e.X, e.Y);
+            if(lvi == null)
+            {
+                return;
+            }
+            if (pointView.X != e.X || pointView.Y != e.Y)//防止闪烁 
+            {
+                toolTip1.Show(lvi.ToolTipText, listView1, new Point(e.X+10, e.Y+10), 1000);
+                pointView.X = e.X;
+
+                pointView.Y = e.Y;
+
+                toolTip1.Active = true;
+            }
+            else
+
+            {
+                //toolTip1.Hide(listView1);
+
+                pointView = new Point(e.X, e.Y);
+
+            }
+
         }
     }
 }
