@@ -1,0 +1,1 @@
+async function enumerateAll(r){return await async function(){const n=[];try{for(let e=0;e<r.length;e++)for await(var t of r[e].enumerate())n.push(t);return n}catch(e){return n}}()}window.enumerateAll=enumerateAll;

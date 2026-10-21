@@ -1,0 +1,70 @@
+{
+  "new": {
+    "id": "new",
+    "label": "new — KaiOS 3.x / 4.x（API 3.0）",
+    "ua": "Mozilla/5.0 (Mobile; Nokia 2780 Flip; rv:84.0) Gecko/84.0 Firefox/84.0 KAIOS/3.1",
+    "osVersion": "3.0",
+    "apiVersion": "3.0",
+    "storeApiVersion": "3.0",
+    "device": {
+      "brand": "Nokia",
+      "device_id": "123456789012345",
+      "device_type": 999999,
+      "model": "2780 Flip",
+      "os": "KaiOS",
+      "os_version": "3.1",
+      "reference": "4044O-2BAQUS1-R"
+    },
+    "deviceinfo": {
+      "os": "KaiOS 3.0.1",
+      "software": "KaiOS 3.0.1",
+      "productModel": "Nokia 8110 4G",
+      "device": "AMBER",
+      "brand": "Nokia",
+      "manufacturer": "HMD Global",
+      "version": "15.00.17.02",
+      "platformVersion": "48.0",
+      "firmwareRevision": "KaiOS 3.0.1",
+      "series": "Nokia"
+    },
+    "manifestFiles": [
+      "manifest.webmanifest",
+      "manifest.json",
+      "manifest.webapp"
+    ]
+  },
+  "legacy": {
+    "id": "legacy",
+    "label": "legacy — KaiOS 2.5（API 2.0）",
+    "ua": "Mozilla/5.0 (Mobile; GoFlip2.5; rv:48.0) Gecko/48.0 Firefox/48.0 KAIOS/2.5",
+    "osVersion": "2.5",
+    "apiVersion": "2.0",
+    "storeApiVersion": "2.0",
+    "device": {
+      "brand": "AlcatelOneTouch",
+      "device_id": "123456789012345",
+      "device_type": 999999,
+      "model": "GoFlip2.5",
+      "os": "KaiOS",
+      "os_version": "2.5",
+      "reference": "4044O-2BAQUS1-R"
+    },
+    "deviceinfo": {
+      "os": "KaiOS 2.5",
+      "software": "KaiOS 2.5",
+      "productModel": "Alcatel Go Flip 2",
+      "device": "GOFLIP2",
+      "brand": "AlcatelOneTouch",
+      "manufacturer": "TCL",
+      "version": "10.00.15.00",
+      "platformVersion": "48.0",
+      "firmwareRevision": "KaiOS 2.5",
+      "series": "Alcatel"
+    },
+    "manifestFiles": [
+      "manifest.webapp",
+      "manifest.webmanifest",
+      "manifest.json"
+    ]
+  }
+}

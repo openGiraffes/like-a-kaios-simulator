@@ -1,0 +1,11 @@
+function SettingsURL() {
+  this._url = null, this._isBlob = !1;
+}
+SettingsURL.prototype = {
+  set: function set(t) {
+    return this._isBlob && window.URL.revokeObjectURL(this._url), t instanceof Blob ? (this._isBlob = !0, this._url = window.URL.createObjectURL(t)) : (this._isBlob = !1, this._url = t), this._url;
+  },
+  get: function get() {
+    return this._url;
+  }
+}, window.SettingsURL = SettingsURL;

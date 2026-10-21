@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>gaia-header</title>
+  <meta name="description" content="gaia-header example" />
+  <link rel="stylesheet" type="text/css" href="../../../style/gaia_theme/gaia-theme.css">
+  <link rel="stylesheet" type="text/css" href="../../../style/gaia_icons/gaia-icons.css">
+  <link rel="stylesheet" type="text/css" href="../../../style/gaia_theme/gaia-font.css">
+  <script src="../gaia_header.js"></script>
+  <style type="text/css">
+    body {
+      padding: 16px;
+      padding-top: 48px;
+    }
+    header {
+      font-size: 30px;
+    }
+    gaia-header {
+      margin: 20px 0;
+    }
+    .header {
+      color: var(--color-gs90, #323232) !important;
+      font-weight: 600 !important;
+    }
+  </style>
+</head>
+<body role="application">
+  <header >&lt;gaia-header&gt;</header>
+  <section>
+    <gaia-header>
+       <h1 slot="text" class="header">header</h1>
+   </gaia-header>
+  </section>
+</body>
+</html>

@@ -1,762 +1,177 @@
-﻿using Gecko;
-using Gecko.Net;
+using Gecko;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using static Gecko.ObserverNotifications;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 
 namespace KaiosSim
 {
-    public partial class SimForm : Form
+    public sealed class SimForm : Form
     {
-        public string url;
-        static SimForm self;
-
-        public static int initwidth = -1;
-        public static int initheight = -1;
-        public static int initgap = -1;
-
-        bool fullscreen = false;
-        void RegisterExtensionDir(string dir)
+        readonly AppRegistry registry;
+        readonly AppRecord app;
+        readonly GeckoWebBrowser browser = new GeckoWebBrowser();
+        readonly Panel stage = new Panel(), screen = new Panel();
+        readonly Label deviceStatus = new Label();
+        readonly Label bottom = new Label();
+        readonly TextBox console = new TextBox();
+        readonly Timer clock = new Timer();
+        readonly BridgeHost host;
+        readonly BridgeServer server;
+        readonly FlowLayoutPanel toolbar = new FlowLayoutPanel();
+        readonly Panel keypad = new Panel();
+        int width = 240, height = 320;
+        float zoom = 1.5F;
+        bool windowFullscreen, closing;
+        string lastLog;
+        ResponseObserver observer;
+        DocumentBootstrapObserver documentObserver;
+        public AppRecord NextApp { get; private set; }
+        public GeckoWebBrowser Browser { get { return browser; } }
+        public string Origin { get { return server.Origin; } }
+        public event Action<string, JToken> HostMessage;
+        public event Action<string> DiagnosticMessage;
+        public SimForm(AppRegistry registry, AppRecord app, bool diagnostics = false)
         {
-            Console.WriteLine("Registering binary extension directory:  " + dir);
-            var chromeDir = (nsIFile)Xpcom.NewNativeLocalFile(dir);
-            var chromeFile = chromeDir.Clone();
-            chromeFile.Append(new nsAString("chrome.manifest"));
-            Xpcom.ComponentRegistrar.AutoRegister(chromeFile);
+            this.registry = registry; this.app = app;
+            Text = app.Name + " · Gecko 45"; Font = new Font("Microsoft YaHei UI", 9F); AutoScaleMode = AutoScaleMode.None;
+            ClientSize = new Size(770, 660); MinimumSize = new Size(600, 500); StartPosition = FormStartPosition.CenterParent; BackColor = Color.FromArgb(242, 244, 249); KeyPreview = true;
+            host = new BridgeHost(registry, app);
+            host.Command = (name, value) => { try { if (!closing && IsHandleCreated) BeginInvoke(new Action(() => HostCommand(name, value))); } catch (InvalidOperationException) { } };
+            host.Interaction = (name, value) => Invoke(new Func<object>(() => Interact(name, value)));
+            server = new BridgeServer(host, app.Port); server.Diagnostics = diagnostics; app.Port = server.Port; registry.Save(app);
+            GeckoPreferences.User["general.useragent.override"] = (string)host.Mode()["ua"];
+            BuildUi();
+            browser.ConsoleMessage += (s, e) => Log(e.Message);
+            browser.DOMContentLoaded += (s, e) => { bottom.Text = "运行中  ·  " + width + " × " + height + "  ·  Gecko 45"; LayoutScreen(); browser.Focus(); };
+            browser.DocumentCompleted += (s, e) => { bottom.Text = "运行中  ·  " + width + " × " + height + "  ·  Gecko 45"; LayoutScreen(); };
+            browser.Navigated += (s, e) => bottom.Text = "正在加载…";
+            observer = new ResponseObserver(server.Origin); ObserverService.AddObserver(observer);
+            documentObserver = new DocumentBootstrapObserver(server, Log);
+            Shown += (s, e) => BeginInvoke(new Action(() => { if (!closing) { LayoutScreen(); browser.Navigate(server.Origin + app.StartUrl); } }));
+            Resize += (s, e) => LayoutScreen();
+            clock.Interval = 1000; clock.Tick += (s, e) => UpdateClock(); clock.Start(); UpdateClock();
+            KeyDown += (s, e) => { if (e.KeyCode == Keys.F5) { browser.Reload(); e.Handled = true; } else if (e.KeyCode == Keys.F12) { ToggleConsole(); e.Handled = true; } };
         }
-
-        public SimForm(string url, bool fullscreen = false)
+        void BuildUi()
         {
-            InitializeComponent();
-
-            //RegisterExtensionDir("");
-
-            //GeckoPreferences.User["signed.applets.codebase_principal_support"] = true ;
-
-            this.fullscreen = fullscreen;
-            if (fullscreen)
-            {
-                pictureBox1.Visible = false;
-                label1.Visible = false;
-            }
-            else
-            {
-                pictureBox1.Visible = true;
-                label1.Parent = pictureBox1;
-                label1.Visible = true;
-                //pictureBox1.Parent = browserPanel;
-            }
-            this.url = url;
-            self = this;
-            self.browserPanel.Top = 32;
-            self.browserPanel.Left = (self.Width - self.browserPanel.Width) / 2 - 3;
-
-            initgap = self.Width - self.browserPanel.Width;
-
-            int formheight = self.browserPanel.Height + initgap + 50 + self.panel_softkey.Height;
-
-            self.Height = formheight;
-            this.KeyDown += SimForm_KeyDown;
-            this.Load += SimForm_Load;
+            toolbar.Dock = DockStyle.Top; toolbar.Height = 52; toolbar.Padding = new Padding(12, 10, 0, 0); toolbar.BackColor = Color.White;
+            toolbar.Controls.Add(Form1.MakeButton("返回应用库", Close));
+            toolbar.Controls.Add(Form1.MakeButton("刷新 F5", () => browser.Reload()));
+            toolbar.Controls.Add(Form1.MakeButton("旋转", () => { int w = width; width = height; height = w; LayoutScreen(); Eval("window.dispatchEvent(new Event('orientationchange')); window.dispatchEvent(new Event('resize'));"); }));
+            toolbar.Controls.Add(Form1.MakeButton("分辨率", () => { using (var d = new SelectFBL(width, height)) if (d.ShowDialog(this) == DialogResult.OK) { width = d.outwidth; height = d.outheight; LayoutScreen(); } }));
+            var scales = new ComboBox { Width = 85, DropDownStyle = ComboBoxStyle.DropDownList }; scales.Items.AddRange(new object[] { "100%", "150%", "200%" }); scales.SelectedIndex = 1; scales.SelectedIndexChanged += (s, e) => { zoom = scales.SelectedIndex == 0 ? 1 : scales.SelectedIndex == 1 ? 1.5F : 2; LayoutScreen(); }; toolbar.Controls.Add(scales);
+            toolbar.Controls.Add(Form1.MakeButton("日志 F12", ToggleConsole)); Controls.Add(toolbar);
+            toolbar.WrapContents = false;
+            foreach (Control control in toolbar.Controls) control.Width = control is ComboBox ? 70 : 76;
+            toolbar.Controls[0].Width = 92;
+            bottom.Click += (s, e) => ActivateNotification();
+            bottom.Dock = DockStyle.Bottom; bottom.Height = 30; bottom.Padding = new Padding(12, 7, 0, 0); bottom.BackColor = Color.White; bottom.ForeColor = Color.DimGray; Controls.Add(bottom);
+            console.Multiline = true; console.ReadOnly = true; console.ScrollBars = ScrollBars.Vertical; console.Dock = DockStyle.Bottom; console.Height = 140; console.Visible = false; console.Font = new Font("Consolas", 9); console.BackColor = Color.FromArgb(25, 31, 51); console.ForeColor = Color.FromArgb(205, 217, 238); Controls.Add(console);
+            keypad.Dock = DockStyle.Right; keypad.Width = 214; keypad.Padding = new Padding(14); keypad.BackColor = Color.FromArgb(231, 234, 243); Controls.Add(keypad);
+            keypad.Controls.Add(new Label { Text = "虚拟按键", Location = new Point(18, 18), AutoSize = true, Font = new Font(Font, FontStyle.Bold) });
+            var keys = new[] { "SoftLeft", "ArrowUp", "SoftRight", "ArrowLeft", "Enter", "ArrowRight", "Back", "ArrowDown", "Exit", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#" };
+            var names = new[] { "左软键", "↑", "右软键", "←", "OK", "→", "返回", "↓", "挂断", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#" };
+            for (int i = 0; i < keys.Length; i++) { string key = keys[i]; var b = Form1.MakeButton(names[i], () => SendKey(key), key == "Enter"); b.TabStop = false; b.SetBounds(16 + i % 3 * 61, 55 + i / 3 * 49, 56, 42); keypad.Controls.Add(b); }
+            var minus = Form1.MakeButton("音量 −", () => SendKey("VolumeDown")); minus.SetBounds(16, 410, 84, 32); keypad.Controls.Add(minus);
+            var plus = Form1.MakeButton("音量 ＋", () => SendKey("VolumeUp")); plus.SetBounds(108, 410, 84, 32); keypad.Controls.Add(plus);
+            keypad.Controls.Add(new Label { Text = "F1 / F2 软键\nEsc 返回 · 挂断关闭应用\n文本框内 Backspace 正常删除", Location = new Point(18, 460), Size = new Size(186, 70), ForeColor = Color.DimGray });
+            stage.Dock = DockStyle.Fill; Controls.Add(stage); stage.BringToFront(); stage.Controls.Add(screen); screen.BackColor = Color.Black;
+            browser.NoDefaultContextMenu = true; screen.Controls.Add(browser);
+            deviceStatus.TextAlign = ContentAlignment.MiddleRight; deviceStatus.Padding = new Padding(5, 0, 5, 0); deviceStatus.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            try { deviceStatus.BackColor = ColorTranslator.FromHtml(app.Theme); } catch { deviceStatus.BackColor = Color.FromArgb(75, 46, 131); }
+            deviceStatus.ForeColor = deviceStatus.BackColor.GetBrightness() > 0.65 ? Color.Black : Color.White; screen.Controls.Add(deviceStatus); deviceStatus.BringToFront();
         }
-        GeckoWebBrowser geckoWebBrowser;
-
-        private void SimForm_KeyDown(object sender, KeyEventArgs e)
+        void LayoutScreen()
         {
-            if (e.KeyCode == Keys.F5)
-            {
-                geckoWebBrowser.Reload();
-            }
-            else if (e.KeyCode == Keys.F12)
-            {
-                //geckoWebBrowser.tool();
-            }
+            if (closing || stage.ClientSize.Width < 10) return;
+            var effective = Math.Max(0.25F, Math.Min(zoom, Math.Min((stage.ClientSize.Width - 32F) / width, (stage.ClientSize.Height - 32F) / height)));
+            int w = (int)Math.Round(width * effective), h = (int)Math.Round(height * effective);
+            screen.SetBounds((stage.ClientSize.Width - w) / 2, (stage.ClientSize.Height - h) / 2, w, h);
+            bool visible = !app.Fullscreen && !windowFullscreen; deviceStatus.Visible = visible;
+            int bar = visible ? (int)Math.Round(20 * effective) : 0; deviceStatus.SetBounds(0, 0, w, bar);
+            int offset = visible && !app.Overlap ? bar : 0; browser.SetBounds(0, offset, w, h - offset);
+            try { browser.GetDocShellAttribute().GetContentViewerAttribute().SetFullZoomAttribute(effective); } catch { }
         }
-
-        private void EvalHookJs()
+        void UpdateClock()
         {
-            string command = File.ReadAllText("hook.js");
-            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
-            {
-                var result = context.EvaluateScript(command);
-            }
+            var battery = SystemInformation.PowerStatus; deviceStatus.Text = "▂▄▆  Wi-Fi   " + (battery.BatteryLifePercent < 0 ? "100" : Math.Round(battery.BatteryLifePercent * 100).ToString()) + "%   " + DateTime.Now.ToString("HH:mm");
+            host.Emit("kaios:battery", new { level = battery.BatteryLifePercent < 0 ? 1 : battery.BatteryLifePercent, charging = battery.PowerLineStatus != PowerLineStatus.Offline });
         }
-
-        private void MyObs_TicketLoadedEvent(ref HttpChannel p_HttpChannel, object sender, EventArgs e)
+        public string Eval(string script, bool focusedFrame = false)
         {
-            if (sender is StreamListenerTee)
+            try
             {
-                StreamListenerTee oStream = sender as StreamListenerTee;
-                byte[] aData = oStream.GetCapturedData();
-                string sData = Encoding.UTF8.GetString(aData);
-            }
-            p_HttpChannel.SetResponseHeader("Same-Site", "None", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Origin", "*", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Request-Headers", "*", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Credentials", "true", false);
-            p_HttpChannel.SetResponseHeader("Timing-Allow-Origin", "*", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type", false);
-        }
-
-        private void SimForm_Load(object sender, EventArgs e)
-        {
-
-            geckoWebBrowser = new GeckoWebBrowser { Dock = DockStyle.Fill };
-            geckoWebBrowser.EnableConsoleMessageNotfication();
-            geckoWebBrowser.ConsoleMessage += GeckoWebBrowser_ConsoleMessage;
-            geckoWebBrowser.UseHttpActivityObserver = true;
-            //geckoWebBrowser.DomDragStart += GeckoWebBrowser_DOMContentLoaded;
-            geckoWebBrowser.DOMContentLoaded += GeckoWebBrowser_DOMContentLoaded;
-
-
-            //geckoWebBrowser.NoDefaultContextMenu = true;
-
-            //geckoWebBrowser.Load += browser_Load;
-
-            //geckoWebBrowser.DomClick += browser_DomClick;
-
-            ResponseObserver MyObs2 = new ResponseObserver();
-            ObserverService.AddObserver(MyObs2);
-
-            geckoWebBrowser.ObserveHttpModifyRequest += GeckoWebBrowser_ObserveHttpModifyRequest;
-
-            browserPanel.Controls.Add(geckoWebBrowser);
-
-            //panel1.BringToFront();
-            pictureBox1.BringToFront();
-
-            //pictureBox1.BringToFront();
-            geckoWebBrowser.Navigate(this.url);
-
-            initwidth = this.Width;
-            initheight = this.Height;
-            justifyKeyboard();
-            if (fullscreen == false)
-            {
-                Task.Run(() =>
+                var document = browser.Document;
+                if (focusedFrame)
                 {
-                    while (true)
+                    for (int depth = 0; depth < 16; depth++)
                     {
-                        try
-                        {
-                            label1.Invoke(new Action(() =>
-                            {
-                                label1.Text = DateTime.Now.ToString("HH:mm");
-                            }));
-                        }
-                        catch (Exception ex)
-                        {
-
-                        }
-
-                        Thread.Sleep(1000);
+                        var frame = document.ActiveElement as Gecko.DOM.GeckoIFrameElement;
+                        if (frame == null || frame.ContentWindow == null) break;
+                        var child = frame.ContentWindow.Document as GeckoDocument;
+                        if (child == null) break;
+                        document = child;
                     }
-                });
-            }
-        }
-
-        private void GeckoWebBrowser_Paint(object sender, PaintEventArgs e)
-        {
-            e.Graphics.Clear(Color.Black);
-        }
-
-        private void browser_DomClick(object sender, DomMouseEventArgs e)
-        {
-            var ele = e.CurrentTarget.CastToGeckoElement();
-            ele = e.Target.CastToGeckoElement();
-            AddClass("firefinder-match-red", ele);
-        }
-
-
-        /// <summary>
-        /// 添加样式
-        /// </summary>
-        public void AddClass(string className, params GeckoElement[] element)
-        {
-            if (element != null && element.Length > 0)
-            {
-                element.All(x =>
-                {
-                    if (x == null)
-                        return true;
-                    var cls = x.GetAttribute("class");
-                    cls += " " + className;
-                    x.SetAttribute("class", cls);
-                    return true;
-                });
-            }
-        }
-        /// <summary>
-        /// 移除样式
-        /// </summary>
-        public void RemoveClass(string className, params GeckoElement[] element)
-        {
-            if (element != null && element.Length > 0)
-            {
-                element.All(x =>
-                {
-                    if (x == null)
-                        return true;
-                    var cls = x.GetAttribute("class");
-                    if (!string.IsNullOrWhiteSpace(cls))
-                    {
-                        cls = cls.Replace(className, "").Trim();
-                        x.SetAttribute("class", cls);
-                    }
-                    return true;
-                });
-            }
-        }
-
-        /// <summary>
-        /// 注入样式
-        /// </summary>
-        public void InjectCss(GeckoDomDocument doc)
-        {
-            var css = doc.CreateHtmlElement("style");
-            var data = Convert.ToBase64String(File.ReadAllBytes("developer.png"));
-            css.InnerHtml = @"
-* { overflow: -moz-scrollbars-none;
-  overflow-x: hidden;
-  overflow-y: hidden;
-}   
-";
-            //隐藏滚动条
-            geckoWebBrowser.Document.Head.AppendChild(css);
-        }
-        /// <summary>
-        /// 注入脚本
-        /// </summary>
-        public void InjectJs(GeckoDomDocument doc)
-        {
-            var js = doc.CreateHtmlElement("script");
-            js.InnerHtml = File.ReadAllText("hook.js");
-            geckoWebBrowser.Document.Head.AppendChild(js);
-        }
-
-        private void browser_Load(object sender, DomEventArgs e)
-        {
-            InjectCss(geckoWebBrowser.Document);
-            //InjectJs(geckoWebBrowser.Document);
-        }
-
-        private void closeSelf(string obj)
-        {
-            this.Close();
-        }
-
-        private void GeckoWebBrowser_DOMContentLoaded(object sender, DomEventArgs e)
-        {
-            InjectCss(geckoWebBrowser.Document);
-            geckoWebBrowser.AddMessageEventListener("callMeClose", closeSelf);
-            geckoWebBrowser.AddMessageEventListener("callLog", callLog);
-            EvalHookJs();
-        }
-
-        private void callLog(string obj)
-        {
-            Console.WriteLine("\n" + obj + "\n");
-        }
-
-        private void GeckoWebBrowser_ObserveHttpModifyRequest(object sender, GeckoObserveHttpModifyRequestEventArgs e)
-        {
-            Console.WriteLine(e.Uri);
-        }
-
-        private void GeckoWebBrowser_ConsoleMessage(object sender, ConsoleMessageEventArgs e)
-        {
-            Console.WriteLine(e.Message);
-        }
-
-        /// <summary>
-        /// 调整键盘 
-        /// </summary>
-        public static void justifyKeyboard()
-        {
-            self.panel_softkey.Top = self.browserPanel.Top + self.browserPanel.Height + 20;
-            self.panel_softkey.Left = (self.Width - self.panel_softkey.Width) / 2 - 3;
-        }
-
-        /// <summary>
-        /// 旋转屏幕
-        /// </summary>
-        public static void xuanzhuan()
-        {
-            self.Invoke(new Action(() =>
-            {
-                int width = self.browserPanel.Height;
-                int height = self.browserPanel.Width;
-
-                self.browserPanel.Width = width;
-                self.browserPanel.Height = height;
-
-                int formwidth = width + initgap;
-
-                self.Width = formwidth;
-
-                int formheight = height + initgap + 50 + self.panel_softkey.Height;
-
-                self.Height = formheight;
-
-                self.browserPanel.Top = 32;
-                self.browserPanel.Left = (self.Width - self.browserPanel.Width) / 2 - 3;
-
-                justifyKeyboard();
-            }));
-        }
-        /// <summary>
-        /// 切换分辨率
-        /// </summary>
-        public static void qhfbl()
-        {
-            self.Invoke(new Action(() =>
-            {
-                int width = self.browserPanel.Width;
-                int height = self.browserPanel.Height;
-                SelectFBL selectFBL = new SelectFBL(width, height);
-                selectFBL.Owner = self;
-                selectFBL.ShowDialog();
-                if (selectFBL.DialogResult == DialogResult.OK)
-                {
-                    self.browserPanel.Width = selectFBL.outwidth;
-                    self.browserPanel.Height = selectFBL.outheight;
-
-                    int formwidth = selectFBL.outwidth + initgap;
-
-                    self.Width = formwidth;
-
-                    int formheight = selectFBL.outheight + initgap + 50 + self.panel_softkey.Height;
-
-                    self.Height = formheight;
-
-                    self.browserPanel.Top = 32;
-                    self.browserPanel.Left = (self.Width - self.browserPanel.Width) / 2 - 3;
-                    justifyKeyboard();
                 }
-            }));
-        }
-        [DllImport("user32.dll", EntryPoint = "GetKeyboardState")]
-
-        public static extern int GetKeyboardState(byte[] pbKeyState);
-        public static bool CapsLockStatus
-        {
-
-            get
-
-            {
-
-                byte[] bs = new byte[256];
-
-                GetKeyboardState(bs);
-
-                return (bs[0x14] == 1);
-
+                var root = document.DocumentElement;
+                var node = document.CreateElement("script");
+                node.TextContent = "try { document.documentElement.setAttribute('data-kaios-eval', String((0,eval)(" + JsonConvert.SerializeObject(script) + "))); } catch(e) { document.documentElement.setAttribute('data-kaios-eval', 'EvalError: '+String(e)); }";
+                root.AppendChild(node); var result = root.GetAttribute("data-kaios-eval"); root.RemoveChild(node); root.RemoveAttribute("data-kaios-eval"); return result;
             }
-
+            catch (Exception e) { Log("脚本调用：" + e.Message); return null; }
         }
-
-        public const int WM_CHAR = 256;
-        private void btn_leftsoft_Click(object sender, EventArgs e)
+        public void SendKey(string key)
         {
-            geckoWebBrowser.Focus();
-
-            string js = @"
-let myEvent = new CustomEvent(""keydown"", {
-	detail: { key: ""SoftLeft"" }
-}); 
-document.dispatchEvent(myEvent);";
-
-            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
+            if (key == "Exit") { Close(); return; }
+            if (key == "Back")
             {
-                var result = context.EvaluateScript(js);
+                if (Eval("String(typeof __kaiosTap === 'function' && __kaiosTap('EndCall'))", true) == "true") return;
+                if (browser.CanGoBack) browser.GoBack(); else Close(); return;
             }
+            if (key == "VolumeUp" || key == "VolumeDown") { host.Call(key == "VolumeUp" ? "volume:up" : "volume:down", null, "native-ui"); }
+            Eval("typeof __kaiosTap === 'function' && __kaiosTap(" + JsonConvert.SerializeObject(key) + ")", true);
         }
-
-        [DllImport("user32.dll", EntryPoint = "keybd_event", SetLastError = true)]
-        public static extern void keybd_event(Keys bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
-
-        public const int KEYEVENTF_KEYUP = 2;
-        private void btn_rightsoft_Click(object sender, EventArgs e)
+        void HostCommand(string name, JToken value)
         {
-            geckoWebBrowser.Focus();
-
-            string js = @"
-let myEvent = new CustomEvent(""keydown"", {
-	detail: { key: ""SoftRight"" }
-}); 
-document.dispatchEvent(myEvent);";
-
-            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
+            if (closing) return;
+            switch (name)
             {
-                var result = context.EvaluateScript(js);
+                case "shell:log": Log((string)value["text"]); break;
+                case "bridge:ready": bottom.Text = "API 已就绪  ·  " + (string)value["mode"] + "  ·  Gecko 45"; break;
+                case "kaios-app-close": Close(); break;
+                case "apps:launch": NextApp = registry.Find((string)value); if (NextApp != null) Close(); break;
+                case "shell:kaios-key": SendKey((string)value["key"]); break;
+                case "kaios:fullscreen": windowFullscreen = (bool?)value["on"] == true; LayoutScreen(); break;
+                case "kaios:battery:request": UpdateClock(); break;
+                case "notify": bottom.Tag = value; bottom.Cursor = Cursors.Hand; bottom.Text = (string)value["title"] + "  " + (string)value["body"]; Log(bottom.Text); break;
+                case "volume": bottom.Text = "音量 " + Math.Round((double)value * 100) + "%"; Eval("Array.prototype.forEach.call(document.querySelectorAll('audio,video'),function(m){m.volume=" + ((double)value).ToString(System.Globalization.CultureInfo.InvariantCulture) + "})"); break;
             }
-
-            //if (CapsLockStatus)
-            //{
-            //    SendKeys.Send("{e}");
-
-            //    geckoWebBrowser.Focus();
-            //    SendKeys.Send("{E}");
-            //}
-            //else
-            //{
-            //    SendKeys.Send("{E}");
-
-            //    geckoWebBrowser.Focus();
-            //    SendKeys.Send("{e}");
-            //}
+            if (HostMessage != null) HostMessage(name, value);
         }
-
-        private void btn_up_Click(object sender, EventArgs e)
+        public void ActivateNotification()
         {
-            geckoWebBrowser.Focus();
-            keybd_event(Keys.Up, 0, 0, 0);
-            keybd_event(Keys.Up, 0, KEYEVENTF_KEYUP, 0);
-            //SendKeys.Send("{UP}");
+            var notification = bottom.Tag as JToken; if (notification == null) return;
+            host.Emit("kaios-notif-click", new { tag = (string)notification["tag"] }); bottom.Tag = null; bottom.Cursor = Cursors.Default;
         }
-
-        private void btn_ok_Click(object sender, EventArgs e)
+        object Interact(string name, JToken value)
         {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("{ENTER}");
-        }
-
-        private void btn_left_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("{LEFT}");
-        }
-
-        private void btn_right_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("{RIGHT}");
-        }
-
-        private void btn_down_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("{DOWN}");
-        }
-
-        private void btn1_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("1");
-        }
-
-        private void btn2_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("2");
-        }
-
-        private void btn3_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("3");
-        }
-
-        private void btn4_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("4");
-        }
-
-        private void btn5_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("5");
-        }
-
-        private void btn6_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("6");
-        }
-
-        private void btn7_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("7");
-        }
-
-        private void btn8_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("8");
-        }
-
-        private void btn9_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("9");
-        }
-
-        private void btnstar_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("*");
-        }
-
-        private void btn0_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("0");
-        }
-
-        private void btnsharp_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Focus();
-            SendKeys.Send("#");
-        }
-
-
-        private void 刷新ToolStripMenuItem1_Click(object sender, EventArgs e)
-        {
-            geckoWebBrowser.Reload();
-        }
-
-        private void 旋转屏幕ToolStripMenuItem1_Click(object sender, EventArgs e)
-        {
-
-            SimForm.xuanzhuan();
-        }
-
-        private void 切换分辨率ToolStripMenuItem1_Click(object sender, EventArgs e)
-        {
-
-            SimForm.qhfbl();
-        }
-
-        private void btn_up_MouseDown(object sender, MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Left)
+            if (name == "share") { var text = (string)(value["text"] ?? value["url"]); if (!String.IsNullOrEmpty(text)) Clipboard.SetText(text); return true; }
+            using (var dialog = new OpenFileDialog { Title = "选择文件", Filter = "所有文件|*.*" })
             {
-                geckoWebBrowser.Focus();
-                keybd_event(Keys.Up, 0, 0, 0);
+                if (dialog.ShowDialog(this) != DialogResult.OK) return new { canceled = true };
+                var bytes = File.ReadAllBytes(dialog.FileName); return new { base64 = Convert.ToBase64String(bytes), name = Path.GetFileName(dialog.FileName), type = BridgeServer.Mime(dialog.FileName), size = bytes.Length };
             }
         }
-
-        private void btn_up_MouseUp(object sender, MouseEventArgs e)
+        void ToggleConsole() { console.Visible = !console.Visible; LayoutScreen(); }
+        public void Log(string text) { if (String.IsNullOrEmpty(text) || text == lastLog) return; lastLog = text; if (text.Contains("[JavaScript Warning:") && (text.Contains("Declaration dropped") || text.Contains("Loading mixed (insecure) active content"))) return; if (DiagnosticMessage != null) DiagnosticMessage(text); if (console.TextLength > 120000) console.Text = console.Text.Substring(console.TextLength - 60000); console.AppendText(DateTime.Now.ToString("HH:mm:ss") + " " + text + Environment.NewLine); }
+        public string DiagnosticLog { get { return console.Text; } }
+        protected override void Dispose(bool disposing)
         {
-            if (e.Button == MouseButtons.Left)
-            {
-
-                geckoWebBrowser.Focus();
-                keybd_event(Keys.Up, 0, KEYEVENTF_KEYUP, 0);
-            }
-        }
-
-
-        private void btnMouseDown(object sender, MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Left)
-            {
-                geckoWebBrowser.Focus();
-                string text = (sender as Button).Text;
-                switch (text)
-                {
-                    case "上":
-                        keybd_event(Keys.Up, 0, 0, 0);
-                        break;
-                    case "下":
-                        keybd_event(Keys.Down, 0, 0, 0);
-                        break;
-                    case "左":
-                        keybd_event(Keys.Left, 0, 0, 0);
-                        break;
-                    case "右":
-                        keybd_event(Keys.Right, 0, 0, 0);
-                        break;
-                    case "OK键":
-                        keybd_event(Keys.Enter, 0, 0, 0);
-                        break;
-                    case "*":
-                        keybd_event(Keys.Multiply, 0, 0, 0);
-                        break;
-                    case "#":
-                        SendKeys.Send("#");
-                        break;
-                    case "0":
-                        keybd_event(Keys.D0, 0, 0, 0);
-                        break;
-                    case "1":
-                        keybd_event(Keys.D1, 0, 0, 0);
-                        break;
-                    case "2":
-                        keybd_event(Keys.D2, 0, 0, 0);
-                        break;
-                    case "3":
-                        keybd_event(Keys.D3, 0, 0, 0);
-                        break;
-                    case "4":
-                        keybd_event(Keys.D4, 0, 0, 0);
-                        break;
-                    case "5":
-                        keybd_event(Keys.D5, 0, 0, 0);
-                        break;
-                    case "6":
-                        keybd_event(Keys.D6, 0, 0, 0);
-                        break;
-                    case "7":
-                        keybd_event(Keys.D7, 0, 0, 0);
-                        break;
-                    case "8":
-                        keybd_event(Keys.D8, 0, 0, 0);
-                        break;
-                    case "9":
-                        keybd_event(Keys.D9, 0, 0, 0);
-                        break;
-                    default:
-                        break;
-                }
-
-                geckoWebBrowser.Focus();
-            }
-        }
-
-        private void btnMouseUp(object sender, MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Left)
-            {
-
-                geckoWebBrowser.Focus();
-                string text = (sender as Button).Text;
-                switch (text)
-                {
-                    case "上":
-                        keybd_event(Keys.Up, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "下":
-                        keybd_event(Keys.Down, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "左":
-                        keybd_event(Keys.Left, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "右":
-                        keybd_event(Keys.Right, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "OK键":
-                        keybd_event(Keys.Enter, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "*":
-                        keybd_event(Keys.Multiply, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "#":
-                        SendKeys.Send("#");
-                        break;
-                    case "0":
-                        keybd_event(Keys.D0, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "1":
-                        keybd_event(Keys.D1, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "2":
-                        keybd_event(Keys.D2, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "3":
-                        keybd_event(Keys.D3, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "4":
-                        keybd_event(Keys.D4, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "5":
-                        keybd_event(Keys.D5, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "6":
-                        keybd_event(Keys.D6, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "7":
-                        keybd_event(Keys.D7, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "8":
-                        keybd_event(Keys.D8, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    case "9":
-                        keybd_event(Keys.D9, 0, KEYEVENTF_KEYUP, 0);
-                        break;
-                    default:
-                        break;
-                }
-
-                geckoWebBrowser.Focus();
-            }
-        }
-
-        private void browserPanel_Paint(object sender, PaintEventArgs e)
-        {
-            e.Graphics.Clear(Color.Black);
-        }
-
-        private void btn_leftsoft_MouseDown(object sender, MouseEventArgs e)
-        {
-            geckoWebBrowser.Focus();
-
-            string js = @"
-var myEvent = new KeyboardEvent('keydown',{key:'SoftLeft',code:'SoftLeft'}); 
-document.dispatchEvent(myEvent);
-window.dispatchEvent(myEvent);";
-
-            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
-            {
-                var result = context.EvaluateScript(js);
-            }
-        }
-
-        private void btn_leftsoft_MouseUp(object sender, MouseEventArgs e)
-        {
-            geckoWebBrowser.Focus();
-
-            string js = @"
-var myEvent = new KeyboardEvent('keyup',{key:'SoftLeft',code:'SoftLeft'}); 
-document.dispatchEvent(myEvent);
-window.dispatchEvent(myEvent);";
-
-            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
-            {
-                var result = context.EvaluateScript(js);
-            }
-        }
-
-        private void btn_rightsoft_MouseDown(object sender, MouseEventArgs e)
-        {
-            geckoWebBrowser.Focus();
-
-            string js = @"
-var myEvent = new KeyboardEvent('keydown',{key:'SoftRight',code:'SoftRight'}); 
-document.dispatchEvent(myEvent);
-window.dispatchEvent(myEvent);";
-
-            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
-            {
-                var result = context.EvaluateScript(js);
-            }
-        }
-
-        private void btn_rightsoft_MouseUp(object sender, MouseEventArgs e)
-        {
-            geckoWebBrowser.Focus();
-
-            string js = @"
-var myEvent = new KeyboardEvent('keyup',{key:'SoftRight',code:'SoftRight'}); 
-document.dispatchEvent(myEvent);
-window.dispatchEvent(myEvent);";
-
-            using (Gecko.AutoJSContext context = new AutoJSContext(geckoWebBrowser.Window))
-            {
-                var result = context.EvaluateScript(js);
-            }
+            if (disposing && !closing) { closing = true; clock.Stop(); clock.Dispose(); if (observer != null) { ObserverService.RemoveObserver(observer); observer = null; } if (documentObserver != null) { documentObserver.Dispose(); documentObserver = null; } browser.Dispose(); server.Dispose(); }
+            base.Dispose(disposing);
         }
     }
 }

@@ -1,0 +1,1 @@
+const DeviceCapabilityManager={get(...e){return new Promise(a=>{taskScheduler.request({serverName:taskScheduler.DEVICE_CAPABILITY,funcName:"get",args:e}).then(e=>{a(e)},()=>{a(void 0)})})}};window.DeviceCapabilityManager=DeviceCapabilityManager;

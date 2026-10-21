@@ -1,0 +1,1 @@
+{"name":"Shared","short_name":"Shared","lang":"es-US","theme_color":"#ffffff","orientation":"natural","start_url":"/index.html","icons":[{"src":"/icons/shared_84.png","type":"image/png","sizes":"84x84"}],"b2g_features":{"version":"1.0","core":true,"role":"system","permissions":{}}}

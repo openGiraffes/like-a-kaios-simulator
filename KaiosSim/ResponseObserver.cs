@@ -1,70 +1,44 @@
-﻿using Gecko.Net;
 using Gecko;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Runtime.Remoting.Channels;
+using Gecko.Net;
 using Gecko.Observers;
+using System;
+using System.Linq;
 
 namespace KaiosSim
 {
-    public class ResponseObserver : BaseHttpRequestResponseObserver
+    public sealed class ResponseObserver : BaseHttpRequestResponseObserver
     {
-        internal bool _isRegistered;
-
-        //void Observe(nsISupports aSubject, string aTopic, string aData)
-        //{
-        //    if (aTopic == "http-on-examine-response")
-        //    {
-        //        using (HttpChannel channel = HttpChannel.Create(aSubject))
-        //        {
-        //            try
-        //            {
-        //                Response(channel);
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                Console.WriteLine("Exception in observer implementation" + ex.ToString());
-        //            }
-        //        }
-
-        //        return;
-        //    }
-        //    if (aTopic == "http-on-modify-request")
-        //    {
-        //        HttpChannel channel2 = HttpChannel.Create(aSubject);
-        //        try
-        //        {
-        //            //channel2.RequestMethod = "GET";
-        //            //channel2.OriginalUri = new Uri(channel2.OriginalUri.ToString().Replace("https://", "http://"));
-        //            Request(channel2);
-        //        }
-        //        catch (Exception)
-        //        {
-        //            Console.WriteLine("Exception in observer implementation");
-        //        }
-        //        channel2.Dispose();
-        //    }
-        //}
-
+        readonly string origin;
+        public ResponseObserver(string origin) { this.origin = origin; }
         protected override void Request(HttpChannel channel)
         {
-
+            var uri = channel.Uri;
+            string target = null;
+            if (uri.Host == "shared.localhost") target = origin + "/__sim/shared" + uri.PathAndQuery;
+            else if (uri.Host == "static.kaiads.com" || (uri.IsLoopback && uri.AbsolutePath.StartsWith("/sdk/ads/"))) target = origin + "/__sim/ads.js";
+            else if (uri.IsLoopback && uri.AbsolutePath.StartsWith("/api/v1/")) target = origin + "/__sim/external-api/" + uri.AbsolutePath.Substring(8);
+            if (target != null) { channel.Instance.RedirectTo(IOService.CreateNsIUri(target)); return; }
+            bool anonymous = false;
+            var headers = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>>();
+            channel.GetRequestHeaders(headers, (list, key, value) => list.Add(new System.Collections.Generic.KeyValuePair<string, string>(key, value)));
+            foreach (var header in headers)
+            {
+                string name = header.Key.ToLowerInvariant();
+                if (name == "x-kaios-sys-anon") anonymous = true;
+                if (name.StartsWith("x-kaios-sys-hdr-")) channel.SetRequestHeader(name.Substring("x-kaios-sys-hdr-".Length), header.Value, false);
+                if (name.StartsWith("x-kaios-sys-")) channel.SetRequestHeader(header.Key, "", false);
+            }
+            if (anonymous) { channel.SetRequestHeader("Cookie", "", false); channel.SetRequestHeader("Cookie2", "", false); channel.SetRequestHeader("Authorization", "", false); }
         }
-        protected override void Response(HttpChannel p_HttpChannel)
+        protected override void Response(HttpChannel channel)
         {
-
-            //Console.WriteLine("Response:" + p_HttpChannel.Uri);
-
-            p_HttpChannel.SetResponseHeader("Same-Site", "None", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Origin", Form1.baseUrl, false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Request-Headers", "*", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Credentials", "true", false);
-            p_HttpChannel.SetResponseHeader("Timing-Allow-Origin", "*", false);
-            p_HttpChannel.SetResponseHeader("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type", false);
+            string requestOrigin = null; try { requestOrigin = channel.GetRequestHeader("Origin"); } catch { }
+            channel.SetResponseHeader("Access-Control-Allow-Origin", String.IsNullOrEmpty(requestOrigin) ? origin : requestOrigin, false);
+            channel.SetResponseHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS", false);
+            channel.SetResponseHeader("Access-Control-Allow-Credentials", "true", false);
+            channel.SetResponseHeader("Timing-Allow-Origin", "*", false);
+            string requested = null; try { requested = channel.GetRequestHeader("Access-Control-Request-Headers"); } catch { }
+            channel.SetResponseHeader("Access-Control-Allow-Headers", String.IsNullOrEmpty(requested) ? "Content-Type,Authorization,X-KaiOS-Sys-XHR,X-KaiOS-Sys-Anon" : requested, false);
         }
     }
 }

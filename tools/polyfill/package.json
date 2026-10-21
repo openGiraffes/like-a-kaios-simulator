@@ -1,0 +1,14 @@
+{
+  "name": "kaiossim-gecko45-polyfill-build",
+  "private": true,
+  "scripts": { "build": "node build.js", "test": "node test.js" },
+  "devDependencies": {
+    "@babel/core": "7.28.5",
+    "@babel/preset-env": "7.28.5",
+    "browserify": "17.0.1",
+    "buffer": "6.0.3",
+    "core-js": "3.46.0",
+    "path-browserify": "1.0.1",
+    "acorn": "8.15.0"
+  }
+}

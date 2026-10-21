@@ -1,0 +1,1 @@
+gaia-tabs[underline=child]>.selected:after{display:none}gaia-tabs[underline=child]>.selected>:after{content:"";position:absolute;left:-.5rem;bottom:0;width:calc(100% + 1rem);border-bottom:.3rem solid var(--highlight-color)}gaia-tabs[underline=child]>.selected>::after{margin-bottom:.2rem}gaia-tabs[underline=child]>.selected>*{position:relative;display:inline-block;height:100%}

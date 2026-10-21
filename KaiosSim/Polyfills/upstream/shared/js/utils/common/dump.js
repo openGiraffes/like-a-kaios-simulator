@@ -1,0 +1,1 @@
+!function(){function e(){}function i(n,e){let i=n;e&&(i+=JSON.stringify(e)),"function"==typeof dump&&(e=document.location.hostname.replace(/\..*$/g,""),dump(`[${e}] ${i}\n`))}window.DUMP=e,window.DumpOn=i,SettingsObserver&&SettingsObserver.observe("debug.gaia.enabled",!1,n=>{window.DUMP=n?i:e,i(n?"Enabling DUMP":"Disabling DUMP")})}();

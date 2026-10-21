@@ -1,0 +1,1 @@
+window.Format={padLeft(t,e,r){r=r||" ";let n=e-`${t}`.length;for(;-1<--n;)t=r+t;return t}};

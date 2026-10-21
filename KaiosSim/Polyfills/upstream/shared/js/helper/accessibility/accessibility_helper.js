@@ -1,0 +1,1 @@
+!function(e){e.AccessibilityHelper={setAriaSelected:function(t,e){Array.prototype.forEach.call(e,e=>{e.setAttribute("aria-selected",e===t?"true":"false")})}}}(window);

@@ -1,0 +1,1 @@
+!function(){if(window.api||(window.api={}),!window.api.hour12){window.api.hour12=null;SettingsObserver&&SettingsObserver.observe("locale.hour12",!1,i=>{i=i,window.api.hour12!==i&&(window.api.hour12=i,window.dispatchEvent(new CustomEvent("timeformatchange")))})}}();

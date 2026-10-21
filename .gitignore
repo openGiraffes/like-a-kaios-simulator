@@ -1,8 +1,28 @@
-.vs
-bin
-obj
-packages
-x64
-x86
-Release
-Debug
+# IDE state and build outputs
+.vs/
+bin/
+obj/
+packages/
+x64/
+x86/
+Release/
+Debug/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS files, dependency caches and temporary build entry
+.DS_Store
+node_modules/
+__pycache__/
+*.py[cod]
+/tools/polyfill/.entry.js
+
+# Local packages, fixtures, logs and simulator user data
+/artifacts/
+/KaiosSim/data/
+*.log
+
+# Machine-specific Parallels helper (contains the local VM identifier)
+/tools/vm.py

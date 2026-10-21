@@ -1,427 +1,109 @@
-﻿using Gecko;
-using Newtonsoft.Json;
+using Gecko;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Windows.Forms;
-using TouchSocket.Core;
-using TouchSocket.Http;
-using TouchSocket.Sockets;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace KaiosSim
 {
-    public partial class Form1 : Form
+    public sealed class Form1 : Form
     {
-        public Form1()
+        readonly AppRegistry registry;
+        readonly ListView library = new ListView();
+        readonly TextBox search = new TextBox();
+        readonly Label status = new Label();
+        readonly Label empty = new Label();
+        readonly ImageList icons = new ImageList();
+        readonly ComboBox mode = new ComboBox();
+        public AppRegistry Registry { get { return registry; } }
+        public Form1(string testDataRoot = null)
         {
-            InitializeComponent();
-            string path = Path.Combine(Application.StartupPath, "data");
-            if (!Directory.Exists(path))
-            {
-                try
-                {
-                    Directory.CreateDirectory(path);
-                }
-                catch { }
-            }
-            Xpcom.ProfileDirectory = path;
-
-            Xpcom.Initialize("Firefox");
-
-            GeckoPreferences.User["security.fileuri.strict_origin_policy"] = false;
-
-            GeckoPreferences.User["network.http.use-cache"] = false;
-
+            Text = "Like a KaiOS Simulator"; Font = new Font("Microsoft YaHei UI", 9F); AutoScaleMode = AutoScaleMode.Dpi;
+            BackColor = Color.FromArgb(246, 247, 251); ClientSize = new Size(900, 620); MinimumSize = new Size(760, 480); StartPosition = FormStartPosition.CenterScreen;
+            var data = Path.Combine(Application.StartupPath, "data", "simulator");
+            try { Directory.CreateDirectory(data); File.WriteAllText(Path.Combine(data, ".write-test"), ""); File.Delete(Path.Combine(data, ".write-test")); }
+            catch { data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LikeAKaiosSimulator"); }
+            if (testDataRoot != null) data = testDataRoot;
+            registry = new AppRegistry(data);
+            var profile = Path.Combine(data, "gecko-profile"); Directory.CreateDirectory(profile);
+            Xpcom.ProfileDirectory = profile;
+            Xpcom.Initialize(Path.Combine(Application.StartupPath, "Firefox"));
             GeckoPreferences.User["browser.cache.disk.enable"] = false;
-
-            GeckoPreferences.User["browser.cache.check_doc_frequency"] = 1;
-
             GeckoPreferences.User["browser.cache.memory.enable"] = false;
-
-
-            this.Load += Form1_Load;
-            ////Gecko.GeckoPreferences.User["security.fileuri.strict_origin_policy"] = false;
-            //Gecko.GeckoPreferences.User.SetBoolPref("security.fileuri.strict_origin_policy", false);
-            //Gecko.GeckoPreferences.User.SetLocked("security.fileuri.strict_origin_policy", true);
-            ////Gecko.GeckoPreferences.Default["security.fileuri.strict_origin_policy"] = false;
-            //Gecko.GeckoPreferences.Default.SetBoolPref("security.fileuri.strict_origin_policy", false);
-            //bool? o = false;
-            //var t = Gecko.GeckoPreferences.Default.GetBoolPref("security.fileuri.strict_origin_policy", out o);
-            //Gecko.GeckoPreferences.Default.SetLocked("security.fileuri.strict_origin_policy", true);
+            GeckoPreferences.User["media.autoplay.enabled"] = true;
+            BuildUi();
+            registry.ImportHistory(Path.Combine(Application.StartupPath, "config.json"), message => status.Text = message);
+            RefreshLibrary(); AllowDrop = true;
+            DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy; };
+            DragDrop += (s, e) => { foreach (var path in (string[])e.Data.GetData(DataFormats.FileDrop)) Import(path, false); };
         }
-
-        HttpService service;
-        HttpStaticPagePlugin plug;
-
-        public static int Port = 7989;
-        public static string baseUrl = "";
-        private void Form1_Load(object sender, EventArgs e)
+        void BuildUi()
         {
-            loadHistory();
-            bool success = false;
-            for (int i = 0; i < 10; i++)
-            {
-                try
-                {
-                    service = new HttpService();
-                    var config = new TouchSocketConfig();
-                    config.UsePlugin()
-                        .SetReceiveType(ReceiveType.Auto)
-                        .SetListenIPHosts(new IPHost[] { new IPHost("127.0.0.1:" + Port) });
-                    baseUrl = "http://127.0.0.1:" + Port;
-                    service.Setup(config).Start();
-                    success = true;
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    Port++;
-                }
-            }
-            if (success == false)
-            {
-                MessageBox.Show("什么狗屁电脑，一个端口都不能用！");
-                return;
-            }
-            //service.AddPlugin<MyHttpPlug>();//添加自定义插件。
-            plug = service.AddPlugin<HttpStaticPagePlugin>();
-
-            //AddFolder("./");//添加静态页面文件夹
-
-            Console.WriteLine("Http服务器已启动");
-
+            var rail = new Panel { Dock = DockStyle.Left, Width = 214, BackColor = Color.FromArgb(25, 31, 51), Padding = new Padding(22) };
+            rail.Controls.Add(new Label { Text = "LIKE A\nKaiOS", Font = new Font(Font.FontFamily, 25, FontStyle.Bold), ForeColor = Color.White, Location = new Point(22, 32), Size = new Size(178, 95) });
+            rail.Controls.Add(new Label { Text = "应用实验室\n\nGecko 45 原生内核\nKE 兼容 API 补齐", ForeColor = Color.FromArgb(180, 188, 210), Location = new Point(24, 152), Size = new Size(170, 100) });
+            var open = MakeButton("＋  导入应用", OpenFile, true); open.SetBounds(22, 280, 170, 40); rail.Controls.Add(open);
+            var folder = MakeButton("打开应用目录", OpenFolder); folder.SetBounds(22, 332, 170, 36); rail.Controls.Add(folder);
+            rail.Controls.Add(new Label { Text = "支持 ZIP / manifest / HTML\n也可直接拖入窗口\n\nF1 / F2 软键 · 方向键移动\nEnter 确认 · Esc 返回", ForeColor = Color.FromArgb(165, 175, 198), Dock = DockStyle.Bottom, Height = 120 }); Controls.Add(rail);
+            var body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(28) }; Controls.Add(body); body.BringToFront();
+            var header = new Panel { Dock = DockStyle.Top, Height = 108 };
+            header.Controls.Add(new Label { Text = "我的应用", Font = new Font(Font.FontFamily, 22, FontStyle.Bold), AutoSize = true });
+            header.Controls.Add(new Label { Text = "选择应用开始调试，安装记录和数据自动保存。", AutoSize = true, ForeColor = Color.DimGray, Location = new Point(2, 45) });
+            search.SetBounds(0, 77, 270, 28); search.TextChanged += (s, e) => RefreshLibrary(); search.AccessibleName = "搜索应用"; header.Controls.Add(search);
+            mode.DropDownStyle = ComboBoxStyle.DropDownList; mode.Items.AddRange(new object[] { "KaiOS 2.5", "KaiOS 3.x / 4.x" });
+            mode.SelectedIndex = (string)registry.Settings()["apiMode"] == "new" ? 1 : 0; mode.SetBounds(290, 77, 190, 28);
+            mode.SelectedIndexChanged += (s, e) => { registry.SetSettings(new JObject { ["apiMode"] = mode.SelectedIndex == 1 ? "new" : "legacy" }); RefreshLibrary(); }; header.Controls.Add(mode); body.Controls.Add(header);
+            var footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 48, Padding = new Padding(0, 8, 0, 0) };
+            footer.Controls.Add(MakeButton("启动应用", LaunchSelected, true)); footer.Controls.Add(MakeButton("打开 SD 卡", () => { if (Selected != null) System.Diagnostics.Process.Start(registry.Storage(Selected.Id)); })); footer.Controls.Add(MakeButton("移除记录", RemoveSelected)); body.Controls.Add(footer);
+            status.Dock = DockStyle.Bottom; status.Height = 28; status.ForeColor = Color.DimGray; body.Controls.Add(status);
+            var content = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 16, 0, 10) }; body.Controls.Add(content); content.BringToFront();
+            library.Dock = DockStyle.Fill; library.View = View.Details; library.FullRowSelect = true; library.MultiSelect = false; library.HideSelection = false; library.BorderStyle = BorderStyle.None; library.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+            library.Columns.Add("应用", 230); library.Columns.Add("版本", 80); library.Columns.Add("最近运行", 130);
+            icons.ImageSize = new Size(40, 40); icons.ColorDepth = ColorDepth.Depth32Bit; library.SmallImageList = icons;
+            library.DoubleClick += (s, e) => LaunchSelected(); library.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { LaunchSelected(); e.Handled = true; } }; content.Controls.Add(library);
+            empty.Text = "还没有应用\n\n点击「导入应用」，或把应用包拖到这里。"; empty.TextAlign = ContentAlignment.MiddleCenter; empty.Dock = DockStyle.Fill; empty.ForeColor = Color.DimGray; content.Controls.Add(empty);
         }
-
-        private void loadHistory()
+        public static Button MakeButton(string text, Action click, bool primary = false)
         {
-            try
-            {
-                listView1.Items.Clear();
-                listView1.LargeImageList = new ImageList();
-                listView1.LargeImageList.ImageSize = new Size(64, 64);
-                listView1.LargeImageList?.Images?.Clear();
-                if (!File.Exists("config.json"))
-                {
-                    return;
-                }
-                var str = File.ReadAllText("config.json");
-
-                try
-                {
-                    JArray jArray = JArray.Parse(str);
-
-                    JObject obj = new JObject();
-
-                    foreach(var item in jArray)
-                    {
-                        var sitem = new SortItem();
-                        sitem.runtime = 1;
-                        sitem.firstruntime = DateTime.Now;
-                        sitem.lastruntime = DateTime.Now;
-                        obj[item.ToString()] = JObject.Parse(JsonConvert.SerializeObject(sitem));
-                    }
-                    str = obj.ToString();
-                    File.WriteAllText("config.json", str);
-                }
-                catch(Exception ex)
-                {
-
-                }
-
-                JObject jobj = JObject.Parse(str);
-
-                List<string> names = new List<string>(); 
-                List<SortItem> items = new List<SortItem>();
-
-                foreach (var job in jobj)
-                {
-                    try
-                    {
-                        string key = job.Key.ToString();
-                        JObject values = JObject.Parse(job.Value.ToString());
-                        names.Add(key);
-                        items.Add(values.ToObject<SortItem>());
-                    }
-                    catch (Exception ex)
-                    { 
-                        Console.WriteLine(ex.ToString());
-                    }
-                }
-
-                for(int i=0;i<names.Count;i++)
-                {
-                    for(int j=0;j<names.Count;j++)
-                    {
-                        if (items[i].lastruntime > items[j].lastruntime)
-                        {
-                            string t1 = names[i];
-                            names[i] = names[j];
-                            names[j] = t1;
-                            var t2 = items[i];
-                            items[i] = items[j];
-                            items[j] = t2;  
-                        }
-                    }
-                }
-
-                for(int i=0;i<names.Count;i++)
-                {
-
-                    addToPanel(names[i], false, items[i]);
-                }
-
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
+            var b = new Button { Text = text, Width = 112, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = primary ? Color.FromArgb(100, 64, 195) : Color.White, ForeColor = primary ? Color.White : Color.FromArgb(43, 48, 65), Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0) };
+            b.FlatAppearance.BorderColor = primary ? b.BackColor : Color.FromArgb(217, 221, 231); b.Click += (s, e) => click(); return b;
         }
-        private Point pointView = new Point(0, 0);
-        private void addToPanel(string key, bool first , SortItem values)
+        void OpenFile() { using (var d = new OpenFileDialog { Title = "导入 KaiOS 应用", Filter = "KaiOS 应用|*.zip;*.webapp;*.webmanifest;*.json;*.html;*.htm|所有文件|*.*", Multiselect = true }) if (d.ShowDialog(this) == DialogResult.OK) foreach (var file in d.FileNames) Import(file, false); }
+        void OpenFolder() { using (var d = new FolderBrowserDialog { Description = "选择包含 manifest 或 index.html 的目录" }) if (d.ShowDialog(this) == DialogResult.OK) Import(d.SelectedPath, false); }
+        public void Import(string path, bool launch)
         {
-            if (!File.Exists(key))
-            {
-                Console.WriteLine(key + " 不存在！");
-                return;
-            }
-            ListViewItem item = new ListViewItem();
-            
-            item.Tag = key;
-            var path = Path.GetDirectoryName(key);
-            var kaios25main = Path.Combine(path, "manifest.webapp");
-            string iconppath = Path.Combine(path, "icon.png");
-
-            if (!File.Exists(kaios25main))
-            {
-                kaios25main = Path.Combine(path, "appmanifest.json");
-                if (!File.Exists(kaios25main))
-                { 
-                    kaios25main = Path.Combine(path, "manifest.webmanifest");
-                    if (!File.Exists(kaios25main))
-                    {
-                        Console.WriteLine(kaios25main + " 不存在！");
-                    }
-                }
-            }
-
-            var mainfest = File.ReadAllText(kaios25main);
-            JObject mainobj = JObject.Parse(mainfest);
-            var name = mainobj["name"].ToString();
-            string icon;
-            if (kaios25main.EndsWith("appmanifest.json") || kaios25main.EndsWith("manifest.webmanifest"))
-            {
-                icon = ((JObject)mainobj["icons"].LastOrDefault())["src"].ToString().Replace("/", "\\");
-            }
-            else
-            {
-                icon = mainobj["icons"]["128"].ToString().Replace("/", "\\");
-            }
-            iconppath = path + "\\" + icon;
-
-            byte[] bytescion = File.ReadAllBytes(iconppath);
-            Image img = Image.FromStream(new MemoryStream(bytescion));
-
-
-
-            item.Text = name;
-            if (listView1.LargeImageList == null)
-            {
-                listView1.LargeImageList = new ImageList();
-                listView1.LargeImageList.ImageSize = new Size(64, 64);
-            }
-
-            listView1.LargeImageList.Images.Add(iconppath, img);
-            item.ImageIndex = listView1.LargeImageList.Images.Count - 1;
-            
-            item.ToolTipText = string.Format("运行次数:{0}\n最后运行时间:{1}\n首次运行时间:{2}\n", values.runtime, values.lastruntime?.ToString("yyyy-MM-dd HH:mm:ss"),values.firstruntime?.ToString("yyyy-MM-dd HH:mm:ss"));
-
-            if (first)
-            { 
-                listView1.Items.Insert(0, item);
-            }
-            else
-            {
-
-                listView1.Items.Add(item);
-            }
+            try { UseWaitCursor = true; var record = registry.Import(path); RefreshLibrary(); status.Text = "已导入：" + record.Name; if (launch) Launch(record); }
+            catch (Exception e) { MessageBox.Show(this, e.Message, "导入失败", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+            finally { UseWaitCursor = false; }
         }
-
-        private void saveHistory(string key)
+        AppRecord Selected { get { return library.SelectedItems.Count == 0 ? null : (AppRecord)library.SelectedItems[0].Tag; } }
+        void LaunchSelected() { if (Selected != null) Launch(Selected); else status.Text = "请先选中一个应用。"; }
+        public void Launch(AppRecord record)
         {
-            try
-            {
-                string str = "{}";
-                if (File.Exists("config.json"))
-                {
-                    str = File.ReadAllText("config.json");
-                }
-                JObject jobj = JObject.Parse(str);
-                JObject values;
-                if (jobj[key]!=null)
-                {
-                    values = JObject.Parse(jobj[key].ToString());
-                    values["runtime"] = int.Parse(values["runtime"].ToString()) +1;
-                    values["lastruntime"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); 
-                    jobj[key] = values;
-                }
-                else
-                {
-                    values = new JObject();
-                    values["runtime"] = 1;
-                    values["lastruntime"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                    values["firstruntime"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                    jobj[key] = values;
-                    addToPanel(key, true, values.ToObject<SortItem>());
-                }
-
-                File.WriteAllText("config.json", jobj.ToString(Newtonsoft.Json.Formatting.None));
-                
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
+            try { AppRecord next = record; while (next != null) { next.LastRun = DateTime.Now; registry.Save(next); using (var sim = new SimForm(registry, next)) { sim.ShowDialog(this); next = sim.NextApp; } } }
+            catch (Exception e) { MessageBox.Show(this, e.Message, "启动失败", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            RefreshLibrary();
         }
-        private void removeHistory(string key)
+        void RemoveSelected()
         {
-
+            var rec = Selected; if (rec == null) return;
+            if (MessageBox.Show(this, "移除「" + rec.Name + "」？ZIP 安装副本会删除，原始文件和 SD 卡数据会保留。", "移除应用", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
+            try { registry.Remove(rec.Id); RefreshLibrary(); } catch (Exception e) { status.Text = e.Message; }
         }
-
-        private void button1_Click(object sender, EventArgs e)
+        public void RefreshLibrary()
         {
-            OpenFileDialog dialog = new OpenFileDialog();
-            dialog.Multiselect = false;//该值确定是否可以选择多个文件
-            dialog.Title = "请选择文件";
-            dialog.Filter = "网页文件(*.html)|*.html";
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                string file = dialog.FileName;
-                saveHistory(file);
-
-                loadHistory();
-                //string url = "file:///" + file.Replace("\\", "/");
-                var path = System.IO.Path.GetDirectoryName(file);//+ launch_path;
-                var launch_path = System.IO.Path.GetFileName(file);
-                launch_path = baseUrl + "/" + launch_path;
-                plug.ClearFolder();
-                plug.AddFolder(path);
-                SimForm simForm = new SimForm(launch_path, true);
-                simForm.Owner = this;
-                simForm.ShowDialog();
-            }
+            string selected = Selected == null ? null : Selected.Id; library.BeginUpdate(); library.Items.Clear(); icons.Images.Clear();
+            var records = registry.List().Where(a => String.IsNullOrEmpty(search.Text) || a.Name.IndexOf(search.Text, StringComparison.CurrentCultureIgnoreCase) >= 0).ToArray();
+            foreach (var app in records) { using (var image = AppIcon(app)) icons.Images.Add(app.Id, image); var item = new ListViewItem(app.Name, app.Id) { Tag = app }; item.SubItems.Add((string)(app.Manifest["version"] ?? app.Manifest.SelectToken("b2g_features.version")) ?? "—"); item.SubItems.Add(app.LastRun == default(DateTime) ? "尚未运行" : app.LastRun.ToString("MM-dd HH:mm")); library.Items.Add(item); if (app.Id == selected) item.Selected = true; }
+            library.EndUpdate(); empty.Visible = records.Length == 0; if (empty.Visible) empty.BringToFront(); status.Text = registry.List().Length + " 个应用  ·  Gecko 45  ·  " + (mode.SelectedIndex == 1 ? "API 3.0" : "API 2.0");
         }
-
-        private void button2_Click(object sender, EventArgs e)
+        static Image AppIcon(AppRecord app)
         {
-            OpenFileDialog dialog = new OpenFileDialog();
-            dialog.Multiselect = false;//该值确定是否可以选择多个文件
-            dialog.Title = "请选择文件";
-            dialog.Filter = "KAIOS应用描述文件|appmanifest.json;*.webapp;manifest.webmanifest|KAIOS2.5应用描述文件(*.webapp)|*.webapp|KAIOS3应用描述文件(appmanifest.json,manifest.webmanifest)|appmanifest.json;manifest.webmanifest";
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                try
-                {
-                    string file = dialog.FileName;
-                    var data = System.IO.File.ReadAllText(file);
-                    var jsondata = JObject.Parse(data);
-
-                    var launch_path = jsondata["launch_path"]?.ToString() ?? jsondata["start_url"]?.ToString();
-
-                    if (!launch_path.StartsWith("/"))
-                    {
-                        launch_path = "/" + launch_path;
-                    }
-                    bool fullscreen = jsondata["fullscreen"] != null ? jsondata["fullscreen"]?.ToString()?.ToLower() == "true" : jsondata["display"]?.ToString() == "fullscreen";
-
-                    var path = System.IO.Path.GetDirectoryName(file);//+ launch_path;
-                    saveHistory(Path.Combine(path, file));
-
-                    loadHistory();
-                    plug.ClearFolder();
-                    plug.AddFolder(path);
-                    launch_path = baseUrl + launch_path;
-                    // string url = "file:///" + path.Replace("\\", "/");
-                    SimForm simForm = new SimForm(launch_path, fullscreen);
-                    simForm.Owner = this;
-                    simForm.ShowDialog();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("出错：" + ex.ToString());
-                }
-            }
+            try { var list = app.Manifest["icons"]; string rel = list is JArray ? (string)list.Last["src"] : list is JObject ? (string)((JObject)list).Properties().Last().Value : null; if (rel != null) using (var source = Image.FromFile(AppRegistry.SafePath(app.Root, rel.TrimStart('/')))) return new Bitmap(source); } catch { }
+            var image = new Bitmap(40, 40); using (var g = Graphics.FromImage(image)) { g.Clear(Color.FromArgb(237, 231, 250)); using (var font = new Font("Segoe UI", 18, FontStyle.Bold)) using (var brush = new SolidBrush(Color.FromArgb(100, 64, 195))) g.DrawString(String.IsNullOrEmpty(app.Name) ? "?" : app.Name.Substring(0, 1).ToUpper(), font, brush, 6, 5); } return image;
         }
-
-        private void listView1_DoubleClick(object sender, EventArgs e)
-        {
-            var item = listView1.SelectedItems[0];
-            if (item != null)
-            {
-                var file = item.Tag.ToString();
-                saveHistory(file);
-
-                loadHistory();
-                var path = System.IO.Path.GetDirectoryName(file);//+ launch_path;
-                plug.ClearFolder();
-                plug.AddFolder(path);
-                string mainpath = path + "/" + "manifest.webapp";
-                if (!File.Exists(mainpath))
-                {
-                    mainpath = path + "/" + "appmanifest.json";
-                }
-                if (!File.Exists(mainpath))
-                {
-                    mainpath = path + "/" + "manifest.webmanifest";
-                }
-
-                var data = System.IO.File.ReadAllText(mainpath);
-                var jsondata = JObject.Parse(data);
-                bool fullscreen = jsondata["fullscreen"] != null ? jsondata["fullscreen"]?.ToString()?.ToLower() == "true" : jsondata["display"]?.ToString() == "fullscreen";
-                var launch_path = jsondata["launch_path"]?.ToString() ?? jsondata["start_url"]?.ToString();
-                if (!launch_path.StartsWith("/"))
-                {
-                    launch_path = "/" + launch_path;
-                }
-                launch_path = baseUrl + launch_path;
-                // string url = "file:///" + path.Replace("\\", "/");
-                SimForm simForm = new SimForm(launch_path, fullscreen);
-                simForm.Owner = this;
-                simForm.ShowDialog();
-            }
-        }
-
-        private void listView1_MouseMove(object sender, MouseEventArgs e)
-        {
-            ListViewItem lvi = this.listView1.GetItemAt(e.X, e.Y);
-            if(lvi == null)
-            {
-                return;
-            }
-            if (pointView.X != e.X || pointView.Y != e.Y)//防止闪烁 
-            {
-                toolTip1.Show(lvi.ToolTipText, listView1, new Point(e.X+10, e.Y+10), 1000);
-                pointView.X = e.X;
-
-                pointView.Y = e.Y;
-
-                toolTip1.Active = true;
-            }
-            else
-
-            {
-                //toolTip1.Hide(listView1);
-
-                pointView = new Point(e.X, e.Y);
-
-            }
-
-        }
+        protected override void Dispose(bool disposing) { if (disposing) icons.Dispose(); base.Dispose(disposing); }
     }
 }
